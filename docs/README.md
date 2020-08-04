@@ -126,7 +126,7 @@ docker的使用流程也是分裂为两个部分.即:
 + `requirements.txt`文件用于记录程序的依赖
 
     ```txt
-    flask
+    sanic==20.6.3
     ```
 
 + `pip.conf`文件,用于pip翻墙(非必须)
@@ -141,21 +141,16 @@ docker的使用流程也是分裂为两个部分.即:
     项目的功能非常简单--访问`/`后返回一个`helloworld`文本,代码如下
 
     ```python
-    from flask import Flask
+    from sanic.response import json
 
-    app = Flask(__name__)
+    app = Sanic("hello_example")
 
-    @app.route('/')
-    def hello_world():
-        return 'Hello, World!'
+    @app.route("/")
+    async def test(request):
+    return json({"hello": "world"})
 
-
-    def main():
-        app.run(debug=True, host="0.0.0.0",port=5000)
-
-
-    if __name__ == '__main__':
-        main()
+    if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
     ```
 
 + `Dockerfile`文件用于声明如何构造镜像
