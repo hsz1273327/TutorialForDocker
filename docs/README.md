@@ -1,32 +1,14 @@
----
-layout: post
-title: "docker的简单介绍"
-date: 2020-02-03
-author: "Hsz"
-category: introduce
-tags:
-    - DevOps 
-    - Docker
-    - MicroService
-header-img: "img/post-bg-2015.jpg"
-update: 2020-02-10
-series:
-    get_along_well_with_docker:
-        index: 1
----
 # docker简介
 
 在我的其他文章中已经多次使用过docker这个工具,看过那些文章的同学应该已经充分理解了其便利性.
 
 可以说docker是计算机领域近10年最伟大的工具都不过分,它的出现大大简化了开发到部署的流程,让不同的使用环境可以有相同的执行环境.
 
-本文及后续的一系列文章将系统的介绍这一跨时代的工具.
+本文将系统的介绍这一跨时代的工具.
 
 ## docker解决的问题
 
-我们在前面的文章中也已经介绍过一些运维工具,如fabric用于批量部署,supervisor用于自动重启服务,监控服务状态.这些东西通常是针对的生产环境.
-
-而docker解决的问题和他不同.docker解决的问题可以归结为如下几点:
+我们在自己之前的博文中也已经介绍过一些运维工具,如[fabric用于批量部署](http://blog.hszofficial.site/introduce/2015/03/15/%E4%BD%BF%E7%94%A8Fabric%E5%81%9A%E6%89%B9%E9%87%8F%E9%83%A8%E7%BD%B2/),[supervisor用于自动重启服务,监控服务状态](http://blog.hszofficial.site/introduce/2015/02/19/%E4%BD%BF%E7%94%A8Supervisor%E5%81%9A%E6%9C%8D%E5%8A%A1%E7%9B%91%E6%8E%A7%E5%92%8C%E7%AE%A1%E7%90%86/).这些东西通常是针对的生产环境的单一问题.而docker解决的问题和他不同,可以认为docker是试图使用一套生态解决从开发到部署过程中的全部问题.docker解决的问题可以归结为如下几点:
 
 ### 部署环境差异
 
@@ -51,7 +33,7 @@ Docker解决了运行环境和配置问题,方便发布,也就方便做持续集
 比如python中从开发调试测试到部署,有一系列简单好用的工具:
 + 开发使用标准库`venv`用于构造虚拟环境隔离依赖
 + 依赖管理使用`pip`
-+ 批量部署使用[fabric]
++ 批量部署使用`fabric`
 
 在js中默认就是使用虚拟环境,只需要通过git在目标机器上拉取仓库,并执行`npm install`就可以完美部署好执行环境;
 
@@ -81,7 +63,7 @@ docker容器相当轻量,相当于一个略微复杂的进程,因此也不推荐
 
 ## 需要的知识储备
 
-本文包括后续的系列文章需要有如下支持储备:
+本文需要有如下知识储备:
 
 + 使用python构建简单http服务
 + 了解yaml格式
@@ -91,7 +73,7 @@ docker容器相当轻量,相当于一个略微复杂的进程,因此也不推荐
 
 docker是开源软件,在linux上安装可以确定好自己的系统发行版本,然后参考[官网的指南](https://docs.docker.com/install/linux/docker-ce/centos/)安装.如果是个新机器一般也可以直接使用如下一组命令
 
-1. 下载安装脚本
+1. 下载安装脚本(第一次安装)
 
     ```shell
     curl -sSL https://get.docker.com | sh
@@ -208,16 +190,17 @@ docker的使用流程也是分裂为两个部分.即:
     执行这个命令会使用上面构造的标签为`python_docker_example:helloworld`的镜像构造一个容器来运行我们的程序.
     我们将其设置为后台运行,并且将宿主机的5000端口与容器的5000端口映射.我们就可以通过访问本地的5000端口来访问程序了.
 
-## 克服使用docker的心理障碍.
+## 克服使用docker的心理障碍
 
-不少不了的人使用docker会会有顾虑,主要是如下几个方面,这边一一给出解答
+不少不了解的人使用docker会有顾虑,主要是如下几个方面,这边一一给出解答
 
 ### docker太重了,会额外占用资源
 
 这个顾虑不是全无道理,docker比起虚拟机确实相当轻量,但毕竟是虚拟化技术,会有额外资源消耗不可避免.你要明白一点,容器的功能不是docker提供的,相关技术都是Linux内核提供的.
-docker只是一个容器的管理器而已.正因为这样,Docker不能离开Linux系统运行.损耗的话,理论上对CPU来说只有1% ~3%,内存也极小.损失只出现在I/O上,包括网络I/O和文件系统I/O.
+docker只是一个容器的管理器而已.正因为这样,Docker不能离开Linux系统运行.损耗的话,理论上对CPU来说只有1% ~3%,内存也极小.损失基本只出现在I/O上,包括网络I/O和文件系统I/O.
 这两者就要看不同的实现了.
-物理机上直接对网卡hack可以达到几乎无损失的网络,其他网络方式除非是`-host`模式都会有不同程度的损失.也是看方案.
+物理机上直接对网卡hack可以达到几乎无损失的网络,其他网络方式除非是`-host`模式都会有不同程度的损失.也是看方案的,这块我们会在后文[Docker的Swarm集群]部分详细说明.
+
 文件系统同样,不同的实现性能损失不同.但是对于99%的应用程序来说根本不需要考虑这个损失.即便是要考虑,结合docker体系对开发生产力的提升来说大多数场景下也是利大于弊的.
 
 IBM有论文[An Updated Performance Comparison of Virtual Machines
@@ -408,8 +391,6 @@ docker镜像攻击安全漏洞主要就3种--Dockerfiles攻击,Docker compose攻
 
 docker从19.03开始已将NVIDIA GPU作为设备本地支持.
 
-
-
 目前支持的os环境为linux和windows,但两个操作系统有很大差别
 
 #### linux
@@ -445,5 +426,7 @@ windows上的docker也是通过v-hyper虚拟机实现的,而对gpu的支持也�
 
 用法是在run命令中加入flag`--isolation process`和`--device`,例如`docker run --isolation process --device class/5B45201D-F2F2-4F3B-85BB-30FF1F953599 winml-runner`
 
-[1]: {{site.url}}/img/in-post/docker/tradictional_work_process.webp
-[2]: {{site.url}}/img/in-post/docker/镜像的结构.webp
+关于如何让容器使用gpu资源,我会在后续的[Docker容器部署]文章中介绍哦
+
+[1]: IMGS/tradictional_work_process.webp
+[2]: IMGS/镜像的结构.webp
