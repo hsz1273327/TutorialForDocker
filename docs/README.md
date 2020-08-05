@@ -205,10 +205,14 @@ and Linux Containers](https://domino.research.ibm.com/library/cyberdig.nsf/paper
 
 这个问题更多的时候是使用docker的方式出了问题,就像用刀叉的不能像用筷子的一样夹菜吃一样,用docker的服务器运维也不能和裸机一样.
 
-首先必须承认相比裸机,docker是需要额外的硬盘空间的,为了不影响宿主机的正常运行,我们最好将docker的目录迁移到非系统盘,一般常见的操作是使用链接:
+首先必须承认相比裸机,docker是需要额外的硬盘空间的,为了不影响宿主机的正常运行,我们最好将docker的目录迁移到非系统盘,一般常见的操作是使用链接.注意要将原有的数据迁移过去需要先停止docker的运行.我们以centos为例,将docker相关的数据迁移到`/data/docker`目录
 
 ```bash
-
+systemctl stop docker
+cd /data
+mv /var/lib/docker /data/docker
+ln -s /data/docker /var/lib/docker
+systemctl restart docker
 ```
 
 不同的资源节省硬盘资源的方式也是不一样的,我们一个一个来说.
