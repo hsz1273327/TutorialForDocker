@@ -82,10 +82,31 @@ EXPOSE <port>
 `ONBUILD`|触发器,当一个镜像被用作其他镜像的基础镜像的时候会触发运行
 `LABEL`|用于为构建好的镜像标识一些元信息,编译出镜像后可以使用`docker image inspect --format='' 镜像id`来查看
 `STOPSIGNAL`|允许用户自定义应用在收到`docker stop`所发送的信号
-`HEALTHCHECK`|设定健康检测规则
+`HEALTHCHECK`|设定健康检测规则.
+
+#### 为编译镜像提供参数
+
+
+
+
+#### 镜像的健康检测
+
+上面的列表中有写到`HEALTHCHECK`指令,这个指令有一些特殊,它是一个规定在镜像被部署为容器后会执行的参数,他有两种形式:
+
++ `HEALTHCHECK NODE`,其含义为不继承父镜像的HEALTHCHECK.
+
++ `HEALTHCHECK [options] CMD command`其含义为镜像设置默认健康减查,其执行减查的指令就是`CMD command`的内容,`options`部分则用于设定执行行为的触发机制,`options`可选的参数包括:
+  + `interval=DURATION`从容器运行起来开始计时`interval`的时间后进行第一次健康检查,随后每次间隔`interval`进行一次健康检查.
+  + `start-period=DURATION`,默认为`0s`如果指定这个参数则必须大于`0s`,`start-period`用于设置容器启动需要的启动时间,在这个时间段内如果检查失败不会记录失败次数;如果在启动时间内成功执行了健康检查则容器将被视为已经启动,此后如果在启动时间内再次出现检查失败则会记录失败次数.
+  + `timeout`:设定执行`command`需要时间.比如`curl`一个地址,如果超过`timeout`秒则认为超时是错误的状态,此时每次健康检查的时间是`timeout+interval`
+  + `retries`:连续检查`retries`次,如果结果都是失败状态则认为这个容器是unhealth的.
+
+
 
 
 ### 为镜像指定标签
+
+我们
 
 ### 将镜像上传至镜像仓库
 
