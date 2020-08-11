@@ -291,7 +291,7 @@ services:
 
 需要注意,在window下默认是无法挂载宿主机磁盘的,要支持这个功能需要进入`docker desktop`的设置中修改设置,设置路径为`Settings->Docker Engine`,在其中的json格式的配置中修改`"experimental"`项为`true`即可.
 
->例2: [为nginx挂载本地文件系统获取静态html文件](https://github.com/hsz1273327/TutorialForDocker/tree/example-nginx)
+>例2: [为nginx挂载本地文件系统获取静态html文件](https://github.com/hsz1273327/TutorialForDocker/tree/example-nginx-volumes)
 
 我们在项目目录下新建一个文件夹`static`,其中放上一个html文件
 
@@ -313,7 +313,6 @@ services:
       - "./static:/usr/share/nginx/html"
     ...
 ```
-
 
 ## 网络配置
 
