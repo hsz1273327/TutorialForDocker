@@ -223,7 +223,7 @@ logging:
 
 上面的部分我们已经介绍了单机部署的基本配置,后续的网络配置,编排配置,存储配置,包括swarm集群配置都是在这部分之上的扩展,接下来我们完整应用下上面的内容来实战下容器部署.
 
-> 例子1: [部署nginx]()
+> 例子1: [部署nginx](https://github.com/hsz1273327/TutorialForDocker/tree/example-nginx)
 
 + `docker-compose.yml`
 
@@ -257,23 +257,63 @@ services:
 [docker-compose](https://github.com/docker/compose)是一个python的命令行工具,专门用于解析`docker-compose.yml`文件然后根据其中的配置编排部署容器.
 他的详细命令介绍可以看[官方文档](https://docs.docker.com/compose/reference/overview/)
 
-比较常用的命令是
+比较常用的命令是:
 
 命令|功能说明|可选参数
 ---|---|---
 `docker-compose up`|启动`docker-compose.yml`对应的stack|`-d`用于后台执行,`--build`用于重新编译镜像
 `docker-compose down`|停掉`docker-compose.yml`对应的stack中的所有容器,并删除整个stack|`--rmi`同时删除其中用到的镜像
 
+`docker-compose`会找到当前文件夹下的`docker-compose.yml`文件,解析并部署容器,stack的名字就是当前的文件夹名.
+
+如果需要指定`docker-compose.yml`文件,比如一个项目会部署在多个环境,不同的环境使用不同的`docker-compose.yml`文件,那可以通过`-f`指定配置文件.
 
 ## 存储配置
 
 上面的例子我们部署nginx只是让它跑起来而已,我们知道nginx是一个静态http服务器,那如果我们希望它可以部署我们的静态页面,那就需要它可以访问我们宿主机上的文件系统.
 
+在`docker-compose.yml`中可以通过挂载文件系统来让容器和宿主机互通文件.
+
 ### 存储映射宿主机上的文件系统
 
-### 存储映射nfs上的文件系统
+最简单的办法是直接映射宿主机上的文件系统,这个我们可以直接在`services`中定义映射,其形式为:
 
-volumes
+```yml
+...
+services:
+  webapp:
+    ...
+    volumes:
+      - "本地路径:容器中路径"
+    ...
+...
+```
+
+需要注意,在window下默认是无法挂载宿主机磁盘的,要支持这个功能需要进入`docker desktop`的设置中修改设置,设置路径为`Settings->Docker Engine`,在其中的json格式的配置中修改`"experimental"`项为`true`即可.
+
+>例2: [为nginx挂载本地文件系统获取静态html文件](https://github.com/hsz1273327/TutorialForDocker/tree/example-nginx)
+
+我们在项目目录下新建一个文件夹`static`,其中放上一个html文件
+
++ `index.html`
+
+```html
+<h1>hello</h1>
+```
+
+然后修改`docker-compose.yml`文件,为其加上挂载文件系统的配置.
++ `docker-compose.yml`
+
+```yml
+version: "3.8"
+services:
+  webapp:
+    ...
+    volumes: 
+      - "./static:/usr/share/nginx/html"
+    ...
+```
+
 
 ## 网络配置
 
@@ -291,7 +331,7 @@ docker中网络配置是专门的一块.本文是介绍单机上docker部署的,
 network_mode: "host"
 ```
 
-> 例4:使用host网络部署nginx,并为我们的sanic应用做反向代理
+> 例3:使用host网络部署nginx,并为我们的sanic应用做反向代理
 
 当然这种方式也是相当危险的,它无异于将本机的所有端口暴露给了容器,如果是不熟悉来源的容器建议不要使用这种方式
 
@@ -308,6 +348,6 @@ ports:
 
 `bridge`网络无法访问宿主机的端口,因此常见的用法是将依赖的服务放到同一个stack,在同一个stack下会默认创建一个网络,同一个stack中的service都可以使用service的名字作为hostname相互访问.
 
-> 例5: 使用`bridge`网络部署nginx和sanic应用,并未该sanic应用做反向代理
+> 例4: 使用`bridge`网络部署nginx和sanic应用,并未该sanic应用做反向代理
 
 ### 创建可挂载的bridge网络用于多stack间通信
