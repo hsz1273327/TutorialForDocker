@@ -60,7 +60,7 @@ docker-compose的语法详细的还是因该去看[官方文档](https://docs.do
 
 如果是使用现有的镜像部署那么就需要用`image`申明使用的镜像.
 
-其格式为`image: 镜像名`或者`image: 镜像名:版本标签`或`image: 镜像id`.如果指定为镜像名则默认拉取版本标签为`latest`的镜像.
+其格式为`image: 镜像名`或者`image: 镜像名:版本标签`或`image: 镜像id`.如果指定为镜像名则默认拉取版本标签为`latest`的镜像.需要注意如果本地并没有指定的镜像那么docer会去镜像仓库拉取.
 
 #### `build`
 
@@ -85,6 +85,7 @@ docker-compose的语法详细的还是因该去看[官方文档](https://docs.do
 + 重启策略
 + 传入参数
 + 启动服务
++ 服务标签
 + log收集
 
 #### 资源限制
@@ -190,6 +191,18 @@ command:
         cmd3
 ```
 
+### 服务标签
+
+服务标签并不会影响服务的运行,它是一个关于该服务的元数据,一些框架会使用服务的标签做一些文章.其形式为:
+
+```yml
+
+labels:
+  com.example.description: "Accounting webapp"
+  com.example.department: "Finance"
+  com.example.label-with-empty-value: ""
+```
+
 ### log收集.
 
 docker中容器打出的log都会被docker收集,关于log收集一块的配置在关键字`logging`部分定义,其形式如下:
@@ -206,17 +219,51 @@ logging:
 
 关于docker下的log收集时另一个话题,我们会在介绍完`swarm`后专门介绍.
 
-## 使用`docker-compose`部署stack
+## 使用`docker-compose`命令行工具部署stack
 
-
-上面的部分我们已经介绍了单机部署的基本模式,后续的网络配置,编排配置,存储配置,包括swarm集群配置都是在这部分之上的扩展,接下来我们来看一个例子完整应用下上面的内容.
+上面的部分我们已经介绍了单机部署的基本配置,后续的网络配置,编排配置,存储配置,包括swarm集群配置都是在这部分之上的扩展,接下来我们完整应用下上面的内容来实战下容器部署.
 
 > 例子1: [部署nginx]()
 
 + `docker-compose.yml`
 
 ```yml
+version: "3.8"
+services:
+  webapp:
+    image: nginx:latest
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200k"
+        max-file: "10"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 50M
+        reservations:
+          cpus: '0.25'
+          memory: 20M
 ```
+
+接下来我们要部署这个配置,很简单,就是使用命令`docker-compose up`即可.
+
+[docker-compose](https://github.com/docker/compose)是一个python的命令行工具,专门用于解析`docker-compose.yml`文件然后根据其中的配置编排部署容器.
+他的详细命令介绍可以看[官方文档](https://docs.docker.com/compose/reference/overview/)
+
+比较常用的命令是
+
+命令|功能说明|可选参数
+---|---|---
+`docker-compose up`|启动`docker-compose.yml`对应的stack|`-d`用于后台执行,`--build`用于重新编译镜像
+`docker-compose down`|停掉`docker-compose.yml`对应的stack中的所有容器,并删除整个stack|`--rmi`同时删除其中用到的镜像
+
 
 ## 存储配置
 
