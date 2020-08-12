@@ -316,7 +316,7 @@ services:
 + `docker-compose.yml`
 
 ```yml
-version: "3.8"
+version: "2.4"
 services:
   http_static:
     ...
@@ -355,9 +355,17 @@ ports:
 
 其中冒号左侧的是映射到宿主机的端口,右侧的则是要映射的容器中的端口.
 
-> 例3: 将nginx中的80端口映射到宿主机的8080端口
+> 例3: [将nginx中的80端口映射到宿主机的8080端口](https://github.com/hsz1273327/TutorialForDocker/tree/example-nginx-ports)
 
-
+```yml
+version: "2.4"
+services:
+  http_static:
+    ...
+    ports: 
+      - "8080:80"
+    ...
+```
 
 `bridge`网络无法访问宿主机的端口,因此常见的用法是将依赖的服务放到同一个stack,在同一个stack下会默认创建一个网络,同一个stack中的service都可以使用service的名字作为hostname相互访问.
 如果非要访问宿主机的网络服务,那么对不同平台有不同的方法,
@@ -366,5 +374,7 @@ ports:
 + 如果是linux下直接安装的docker,则可以直接使用本机的内网ip作为hostname在容器种使用.
 
 > 例4: 使用`bridge`网络部署sanic应用,并连接本地的redis(windows或mac下)
+
+
 
 ## 服务编排
