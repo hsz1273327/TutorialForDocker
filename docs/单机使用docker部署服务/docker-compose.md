@@ -466,7 +466,7 @@ version: "2.4"
 
 `bridge`网络无法访问宿主机的端口,因此常见的用法是将依赖的服务放到同一个stack,在同一个stack下会默认创建一个网络,同一个stack中的service都可以使用service的名字作为hostname相互访问.
 
-> 例6: [上例stack中的redis不再暴露给外网]()
+> 例6: [上例stack中的redis不再暴露给外网](https://github.com/hsz1273327/TutorialForDocker/tree/helloworld-with-redis-connect)
 
 ```yml
 version: "2.4"
