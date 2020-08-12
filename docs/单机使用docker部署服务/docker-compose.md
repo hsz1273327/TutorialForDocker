@@ -249,28 +249,18 @@ logging:
 + `docker-compose.yml`
 
 ```yml
-version: "3.8"
+version: "2.4"
 services:
-  webapp:
+  http_static:
     image: nginx:latest
     logging:
       driver: "json-file"
       options:
         max-size: "200k"
         max-file: "10"
-    deploy:
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 50M
-        reservations:
-          cpus: '0.25'
-          memory: 20M
+    cpus: 1.0
+    mem_limit: 30m
+    restart: on-failure
 ```
 
 接下来我们要部署这个配置,很简单,就是使用命令`docker-compose up`即可.
@@ -302,7 +292,7 @@ services:
 ```yml
 ...
 services:
-  webapp:
+  http_static:
     ...
     volumes:
       - "本地路径:容器中路径"
@@ -328,7 +318,7 @@ services:
 ```yml
 version: "3.8"
 services:
-  webapp:
+  http_static:
     ...
     volumes: 
       - "./static:/usr/share/nginx/html"
@@ -351,9 +341,8 @@ docker中网络配置是专门的一块.本文是介绍单机上docker部署的,
 network_mode: "host"
 ```
 
-> 例3:使用host网络部署nginx,并为我们的sanic应用做反向代理
-
-当然这种方式也是相当危险的,它无异于将本机的所有端口暴露给了容器,如果是不熟悉来源的容器建议不要使用这种方式
+当然这种方式也是相当危险的,它无异于将本机的所有端口暴露给了容器,如果是不熟悉来源的容器建议不要使用这种方式.
+需要注意由于docker desktop的实现问题,在windows和mac下这个方式并不会起任何效果,也就是说只在linux下会生效.由于多数人还是在windows/mac下做开发,因此这种方式其实实用性不高.
 
 ### bridge网络
 
@@ -366,8 +355,16 @@ ports:
 
 其中冒号左侧的是映射到宿主机的端口,右侧的则是要映射的容器中的端口.
 
+> 例3: 将nginx中的80端口映射到宿主机的8080端口
+
+
+
 `bridge`网络无法访问宿主机的端口,因此常见的用法是将依赖的服务放到同一个stack,在同一个stack下会默认创建一个网络,同一个stack中的service都可以使用service的名字作为hostname相互访问.
+如果非要访问宿主机的网络服务,那么对不同平台有不同的方法,
 
-> 例4: 使用`bridge`网络部署nginx和sanic应用,并未该sanic应用做反向代理
++ 如果是windows或者mac平台使用的`docker desktop运行的docker服务`,那么可以在容器种使用`host.docker.internal`作为hostname代表宿主机.
++ 如果是linux下直接安装的docker,则可以直接使用本机的内网ip作为hostname在容器种使用.
 
-### 创建可挂载的bridge网络用于多stack间通信
+> 例4: 使用`bridge`网络部署sanic应用,并连接本地的redis(windows或mac下)
+
+## 服务编排
