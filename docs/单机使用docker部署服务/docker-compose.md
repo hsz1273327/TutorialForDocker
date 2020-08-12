@@ -373,7 +373,7 @@ services:
 + 如果是windows或者mac平台使用的`docker desktop运行的docker服务`,那么可以在容器种使用`host.docker.internal`作为hostname代表宿主机.
 + 如果是linux下直接安装的docker,则可以直接使用本机的内网ip作为hostname在容器种使用.
 
-> 例4: [使用`bridge`网络部署sanic应用,并连接本地的redis(windows或mac下)]()
+> 例4: [使用`bridge`网络部署sanic应用,并连接本地的redis(windows或mac下)](https://github.com/hsz1273327/TutorialForDocker/tree/helloworld-with-redis)
 
 这里例子我们要起两个服务,一个是sanic的http服务(helloworld例子的扩展),一个是redis.我们的sanic需要访问redis的`foo`这个key,为其设置值和取值.
 
