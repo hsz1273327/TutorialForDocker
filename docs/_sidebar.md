@@ -2,8 +2,8 @@
 
 * 目录
   * [Docker的简单介绍](README.md)
-    * [单机使用Docker部署服务](单机使用Docker部署服务/README.md)
-      * [docker-compose](单机使用Docker部署服务/docker-compose.md)
+    * [本地使用Docker部署服务](本地使用Docker部署服务/README.md)
+      * [docker-compose](本地使用Docker部署服务/docker-compose.md)
       
     * [Docker的镜像及管理](Docker的镜像及管理/README.md)
       * [Docker的镜像](Docker的镜像及管理/Docker的镜像.md)
