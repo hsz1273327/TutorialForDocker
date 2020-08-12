@@ -1,4 +1,4 @@
-# docker-compose
+# 使用docker-compose本地部署
 
 作为通用的容器部署编排工具,`docker-compose`已经是docker生态下的标准工具了.虽然docker也有直接使用`docker run`命令部署服务的方式,但从便利性和可维护性角度看已经完全没有必要介绍了.
 
