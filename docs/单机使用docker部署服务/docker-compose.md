@@ -42,7 +42,7 @@ docker-compose的语法详细的还是因该去看[官方文档](https://docs.do
 
 `version`字段用于声明`docker-compose`解析的语法版本,目前看主要是两种即`v2`版本和`v3`版本.这两个版本大同小异,但侧重点不同--`v2`版本主要偏向于单机部署,`v3`版本主要偏向于`swarm`集群部署.目前的趋势是`v3`版本用的人越来越多,`v2`版本用的人越来越少,但`v2`版本却有许多功能`v3`版本不支持或者不原生支持.`v2`版本的最高版本号是`2.4`,且已经不再更新.
 
-本文以`v3.8`版本为基础介绍`docker-compose`语法
+本文以`v2.4`版本为基础介绍`docker-compose`语法.
 
 ## 服务配置
 
@@ -110,54 +110,57 @@ build: ./dir
 
 docker相比起直接部署的一个优势就在于可以限制使用的资源.在开发的时候可以限制好资源开发,避免出现资源占用过高后不得不拔电源重启的情况.
 
-docker的资源限制相关的配置在`deploy`字段下的`resources`字段下,可以限制内存和cpu的使用.其形式如下:
+docker的资源限制相关的配置在`v2`版本的compose语法中在如下字段中:
+
+字段|说明|数据类型
+---|---|---
+`cpu_count`|使用几个核|int
+`cpu_percent`|使用cpu的多少百分比的资源(0,100)|int
+`cpus`|总共使用多少cpu资源|float
+`cpu_shares`|cpu的共享权重|int
+`cpu_quota`|限制CPU的CFS配额,必须不小于1ms,即>= 1000|int
+`cpu_period`|限制CPU的CFS的周期范围从100ms~1s|str,单位一般时ms
+`cpuset`|允许使用的CPU集合|str,取值为`0-3`或者`0,1`这种形式
+`mem_limit`|内存限制,最小4m|str,单位可以是b,k,m,g
+`memswap_limit`|内存+交换区大小总限制|str,单位可以是b,k,m,g
+`mem_swappiness`|置容器的虚拟内存控制行为,值为`0~100`之间的整数|int
+`mem_reservation`|内存的软性限制|str,单位可以是b,k,m,g
+`oom_kill_disable`|当oom时不会杀死当前进程|bool
+`oom_score_adj`|系统内存不够时,容器被杀死的优先级.负值更教不可能被杀死而正值更有可能被杀死|int
 
 ```yml
 ...
-deploy:
-    resources:
-        limits:
-            cpus: '0.50'
-            memory: 50M
-        reservations:
-            cpus: '0.25'
-            memory: 20M
-
+cpu_percent: 50
+cpus: 0.5
+cpu_shares: 73
+cpu_quota: 50000
+cpu_period: 20ms
+cpuset: 0,1
 ...
 ```
 
-`limits`限制了最高的用量,`reservations`限制了至少要保留的资源.其中`cpu`的限制是一个浮点数,其含义是使用单核的多少算力,比如`0.5`就是说只能使用单核的50%算力.
-
 如果服务或容器尝试使用的内存超过系统可用的内存,则可能会遇到内存不足异常(俗称oom),docker内核会杀掉容器进程或者Docker守护程序.为防止这种情况发生,应该确保应用程序在具有足够内存的主机上运行.
+
+docker一般推荐一个容器只起一个进程,这样在杀死进程的时候可以避免僵尸进程.
 
 #### 重启策略
 
 docker的另一个优势就是可以自动重启,这对于一些需要开机自启动的程序相当友好.
 
-docker的重启策略相关的配置在`deploy`字段下的`restart_policy`字段下.其形式如下:
+docker的重启策略相关的配置在在`v2`版本的compose语法中通过`restart`字段规定.其形式如下:
 
 ```yml
 ...
-deploy:
-    restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
+restart: on-failure
 ...
 ```
 
-其中
+其中取值范围可以有4种:
 
-+ `condition`描述在何种情况下重启,可选的有
-  + `on-failure`只在启动失败时重启
-  + `any`,在任何情况下重启(默认值)
-  + `none`,在任何情况下都不重启,
-
-+ `delay`在重新启动尝试之间等待多长时间,默认不等待,即`0s`
-+ `max_attempts`最大重启尝试次数,次数过了就不会再尝试重启.默认会一直重启
-+ `window`在决定重新启动是否成功之前要等待多长时间,默认是立刻判断,有些容器启动时间比较长,需要指定一个"窗口期".
-
++ `on-failure`只在启动失败时重启
++ `any`,在任何情况下重启(默认值)
++ `none`,在任何情况下都不重启
++ `unless-stopped`除了正常停止以外都会重启
 
 ### 传入参数
 
