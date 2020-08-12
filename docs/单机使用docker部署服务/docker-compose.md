@@ -164,7 +164,7 @@ restart: on-failure
 
 ### 传入参数
 
-再docker下一般推荐使用环境变量来传入参数,我们可以使用字段`environment`来指定要传入参数的键值对.其形式如下:
+在docker下一般推荐使用环境变量来传入参数,我们可以使用字段`environment`来指定要传入参数的键值对.其形式如下:
 
 
 ```yml
@@ -248,20 +248,20 @@ logging:
 
 + `docker-compose.yml`
 
-```yml
-version: "2.4"
-services:
-  http_static:
-    image: nginx:latest
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "200k"
-        max-file: "10"
-    cpus: 1.0
-    mem_limit: 30m
-    restart: on-failure
-```
+  ```yml
+  version: "2.4"
+  services:
+    http_static:
+      image: nginx:latest
+      logging:
+        driver: "json-file"
+        options:
+          max-size: "200k"
+          max-file: "10"
+      cpus: 1.0
+      mem_limit: 30m
+      restart: on-failure
+  ```
 
 接下来我们要部署这个配置,很简单,就是使用命令`docker-compose up`即可.
 
@@ -373,8 +373,83 @@ services:
 + 如果是windows或者mac平台使用的`docker desktop运行的docker服务`,那么可以在容器种使用`host.docker.internal`作为hostname代表宿主机.
 + 如果是linux下直接安装的docker,则可以直接使用本机的内网ip作为hostname在容器种使用.
 
-> 例4: 使用`bridge`网络部署sanic应用,并连接本地的redis(windows或mac下)
+> 例4: [使用`bridge`网络部署sanic应用,并连接本地的redis(windows或mac下)]()
 
+这里例子我们要起两个服务,一个是sanic的http服务(helloworld例子的扩展),一个是redis.我们的sanic需要访问redis的`foo`这个key,为其设置值和取值.
 
++ `app.py`
 
-## 服务编排
+  ```python
+  from sanic.response import json
+  from sanic import Sanic
+  from aredis import StrictRedis
+  import os
+  redis_url = os.environ.get(f"REDIS_URL") or "redis://localhost:6379"
+  app = Sanic("hello_example")
+  client = StrictRedis.from_url(redis_url,decode_responses=True)
+
+  @app.get("/")
+  async def test(request):
+      return json({"hello": "world"})
+
+  @app.get("/set_foo/<value:string>")
+  async def set(request,value):
+      await client.set('foo', value)
+      return json({"result": "ok"})
+
+  @app.get("/get_foo")
+  async def get(request):
+      res = await client.get('foo')
+      return json({"result":res})
+
+  if __name__ == "__main__":
+      print(f"redis_url: {redis_url}")
+      app.run(host="0.0.0.0", port=5000)
+  ```
+
++ `docker-compose.yml`
+
+  ```yml
+  version: "2.4"
+  services:
+    redis: 
+      image: redis:latest
+      ports:
+        - "5379:6379"
+    webapp:
+      build: ./
+      logging:
+        driver: "json-file"
+        options:
+          max-size: "200k"
+          max-file: "10"
+      ports:
+        - "5000:5000"
+      environment: 
+        REDIS_URL: "redis://host.docker.internal:5379"
+      cpus: 1.0
+      mem_limit: 30m
+      restart: on-failure
+  ```
+
+我们在`app.py`的代码中通过获取环境变量`REDIS_URL`来这是连接的redis的路径.在`docker-compose.yml`中我们则是通过`environment`字段来设置环境变量`REDIS_URL`的值.
+
+我们使用`host.docker.internal`指代宿主机的hostname,这样就可以访问到redis了.
+
+### 服务间的依赖顺序
+
+上面的例子中我们起了两个服务,这两个服务实际上是有依赖关系的--`webapp`依赖`redis`.但上面的配置中实际上是忽视这种依赖关系的.
+实际上为了确保可用,应该先启动`redis`,`redis`ready了再启动`webapp`,同时如果要删除这个task应该先删除`webapp`再删除`redis`,这种依赖关系我们可以使用字段`depends_on`来进行约束.
+
+其语法如:
+
+```yml
+depends_on:
+  - a
+  - b
+  ...
+```
+
+我们来
+
+### 使用bridge网络联通服务
