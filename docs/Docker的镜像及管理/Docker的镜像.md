@@ -17,7 +17,7 @@ docker的镜像是底层由引导文件系统(bootfs),上层由文件系统叠�
 
 
 
-## 构建镜像
+## 构建镜像的基本工作流
 
 一般我们构建镜像都是基于一个基镜像的,我们的那ubuntu作为基镜像,那么在其之上我们怎么构建镜像呢?有两种方式:
 
@@ -97,18 +97,155 @@ EXPOSE <port>
   + `timeout`:设定执行`command`需要时间.比如`curl`一个地址,如果超过`timeout`秒则认为超时是错误的状态,此时每次健康检查的时间是`timeout+interval`
   + `retries`:连续检查`retries`次,如果结果都是失败状态则认为这个容器是unhealth的.
 
-> 例1: [为我们的helloworld项目提供健康检测功能]()
 
-### healthcheck
-
-一个常见的需求就是健康检测了,我们通常写一个服务都会给一个`ping-pong`接口用于检测心跳防止服务起着但是已经不再可用.不用docker的话通常我们是在外部定义一个定时任务隔段时间请求一次来确保可用.而如果是docker的话就可以设置健康检查脚本了(前提是镜像中有对应的工具支持).当然了更加推荐的是在构建镜像时定义健康检查,
+对于许多服务或程序一个常见的需求就是健康检测了,我们通常写一个服务都会给一个`ping-pong`接口用于检测心跳防止服务起着但是已经不再可用.不用docker的话通常我们是在外部定义一个定时任务隔段时间请求一次来确保可用.而如果是docker的话就可以设置健康检查脚本了(前提是镜像中有对应的工具支持).当然了更加推荐的是在构建镜像时定义健康检查.
 
 
-### 为镜像指定标签
+> 例1: [为我们的helloworld项目提供健康检测功能](https://github.com/hsz1273327/TutorialForDocker/tree/helloworld-with-healthcheck)
 
-我们
++ `dockerfile`
+
+```yml
+FROM python:3.8
+ADD requirements.txt /code/requirements.txt
+ADD pip.conf /etc/pip.conf
+WORKDIR /code
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
+ADD app.py /code/app.py
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD [ "curl","http://localhost:5000/ping" ]
+CMD [ "python" ,"app.py"]
+```
+
+### CMD和ENTRYPOINT
+
+这两个命令都是用于定义镜像启动为容器时的默认行为的也就是说是用来定义容器执行行为的指令.通常现在的镜像都会至少指定其中一个,如果一个都没有指定,那么直接构造容器时会报错直接退出.而一般镜像都是在其中指定一个.
+
+既然涉及到容器执行,那么就需要了解下docker下容器的执行方式了.
+
+> exec模式和shell模式
+
+docker容器的执行方式有两种
+
++ `exec模式`这个模式相当于在命令行中直接执行命令,它的进程号会为`1`,这也就意味着docker要关闭容器时可以优雅的关闭不容易造成僵尸进程.通常也比较推荐这种方式.
++ `shell模式`这个模式相当于执行`/bin/sh -c <你的命令> `,因此它的`1`号进程实际上是bash进程,这样就有可能造成僵尸进程.
+
+下面是CMD和ENTRYPOINT关键字中不同模式的写法:
+
+命令形式|模式
+---|---
+`CMD ["executable","param1","param2"]`|`exec模式`
+`CMD command param1 param2`|`shell模式`
+`ENTRYPOINT ["executable", "param1", "param2"]`|`exec模式`
+`ENTRYPOINT command param1 param2`|`shell模式`
+
+总结下就是后面的参数是**字符串列表**的就是`exec模式`,直接是命令的则是`shell模式`
+
+> `ENTRYPOINT`和`CMD`的执行优先级
+
+而优先级上来说,`ENTRYPOINT`优先于`CMD`,也就是说如果有`ENTRYPOINT`定义则看它是那种模式,如果是`shell模式`,那么就不会再去执行`CMD`中的指令了;如果是`exec模式`,则`ENTRYPOINT`中定义的内容会和`CMD`组合成一条指令来执行
+
+下面是各种情况的矩阵表
+
+---|未定义`ENTRYPOINT`|`shell模式`的`ENTRYPOINT`|`exec模式`的`ENTRYPOINT`
+---|---|---|---
+未定义`CMD`|报错退出|`/bin/sh -c <ENTRYPOINT中的命令>`|`<ENTRYPOINT中的命令>`
+`shell模式`的`CMD`|`/bin/sh -c <CMD中的命令>`|`/bin/sh -c <ENTRYPOINT中的命令>`+回车+`/bin/sh -c <CMD中的命令>`|`<ENTRYPOINT中的命令>`+回车+`/bin/sh -c <CMD中的命令>`
+`exec模式`的`CMD`|`<CMD中的命令>`|`/bin/sh -c <ENTRYPOINT中的命令>`+回车+`<CMD中的命令>`|`<ENTRYPOINT中的命令>`+`<CMD中的命令>`
+
+因此也可以看出如果两个都定义,那比较合适的用法是在`exec模式`的`ENTRYPOINT`中指定执行程序,`exec模式`的`CMD`中指定默认的执行参数,而在部署容器时则通过声明`command`字段来覆盖镜像中的`CMD`部分达到灵活执行的目的.注意`command`字段同样也要用**字符串列表**的形式声明参数.
+
+## 构建镜像
+
+在定义好`Dockerfile`后就是正式的构建镜像步骤了,这里用到的是`docker build <dockerfile所在的文件夹路径>`命令.
+
+通常我们会用到的参数有:
+
++ `-f`指定`Dockerfile`,比如我们要为不同的平台构造镜像,他们除了基础镜像不一样其他都一样,那么我们就需要用到这个参数.我们可以为每个平台写一个`dockerfile_<平台名>`为名的`Dockerfile`,然后编译的时候根据需要指定即可.
+
++ `-t`为镜像指定一个标签.
+
+一个最常见的写法如下:
+
+```bash
+docker build -t hsz1273327/myimage:latest .
+```
+
+它的含义是在当前目录下找`Dockerfile`文件构建一个标签为`hsz1273327/myimage:latest`的镜像.
+
+### 镜像的标签
+
+我们上面说了镜像的标签,docker体系下镜像标签不光是一个简单标签,它是有规范的.
+
+符合规范的标签大致可以分为如下几种形式:
+
++ `dockerhub账号/镜像名:版本`
++ `私有镜像仓库地址/仓库二级目录名/镜像名:版本`
+
+没错,镜像的标签是和镜像分发有关的.需要额外注意的是`版本`,docker镜像中`latest`有特殊地位,它的含义是最新的稳定版本.因此如果拉取镜像时不指定版本那么docker会自动拉取`latest`版本的镜像.
 
 ### 将镜像上传至镜像仓库
+
+镜像的分发基本上是依靠镜像仓库的,[docker hub](https://hub.docker.com/)是目前最大的docker镜像公有仓库,免费,注册了就可以用.我们也可以自己搭建私有镜像仓库,这个是下一篇文章的内容.
+
+要上传镜像首先需要登录镜像仓库,无论是共有的还是私有的只要有用户验证的步骤就一定需要先登录.
+
+```bash
+docker login [-p <密码> -u <用户名>] [私有仓库hostname[:私有仓库端口]]
+```
+
+如果没有在命令中指定用户名和密码,那么这条命令会进入一个命令行的交互界面让你填这些信息.如果没有指定私有仓库信息,那么这会默认登录dockerhub.
+
+在登录了镜像仓库后我们就可以上传镜像了.上传镜像的命令形式如下:
+
+```bash
+docker push dockerhub账号/镜像名[:版本]
+```
+或者
+
+```bash
+docker push 私有镜像仓库地址/仓库二级目录名/镜像名[:版本]
+```
+
+我们可以指定版本上传也可以不指定,如果不指定,那么将会将每个本地存在的版本的镜像都上传了.
+
+### 镜像拉取和docker hub
+
+除了在`docker-compose.yml`执行时拉取镜像外,我们也可以通过命令`docker pull <镜像标签>`来直接拉取镜像,拉取的镜像会保存在本地.
+
+我们多数时候需要的镜像都是来自于dockerhub,但docker hub毫无疑问的部署在墙外,因此在墙内的我们需要设置镜像站,好在官方(`https://registry.docker-cn.com`),网易(`https://hub-mirror.c.163.com`),和科大(`https://docker.mirrors.ustc.edu.cn/`)都提供了镜像站.
+
+配置方法是:
+
++ `windows/mac`,在`docker desktop`的设置项中进入`Docker Engine`,左侧会有一个json形式的配置文件,在其中加上
+
+  ```json
+  {
+    ...
+    "registry-mirrors": [
+      "https://registry.docker-cn.com",
+      "https://hub-mirror.c.163.com",
+      "https://docker.mirrors.ustc.edu.cn/"
+    ],
+    ...
+  }
+  
+  ```
+
++ `linux`在文件`/etc/docker/daemon.json`中添加(如果没有就创建)
+
+  ```json
+  {
+    ...
+    "registry-mirrors": [
+      "https://registry.docker-cn.com",
+      "https://hub-mirror.c.163.com",
+      "https://docker.mirrors.ustc.edu.cn/"
+    ],
+    ...
+  }
+  ```
+
 
 ## 镜像管理
 
