@@ -367,8 +367,7 @@ services:
     ...
 ```
 
-`bridge`网络无法访问宿主机的端口,因此常见的用法是将依赖的服务放到同一个stack,在同一个stack下会默认创建一个网络,同一个stack中的service都可以使用service的名字作为hostname相互访问.
-如果非要访问宿主机的网络服务,那么对不同平台有不同的方法,
+相对应的另一种需求是我们希望容器可以访问宿主机上的服务.
 
 + 如果是windows或者mac平台使用的`docker desktop运行的docker服务`,那么可以在容器种使用`host.docker.internal`作为hostname代表宿主机.
 + 如果是linux下直接安装的docker,则可以直接使用本机的内网ip作为hostname在容器种使用.
@@ -462,3 +461,22 @@ version: "2.4"
 ```
 
 ### 使用bridge网络联通服务
+
+实际上我们只要访问`webapp`,并不关心它是存在哪个redis里,更加不会没事取访问它依赖的那个redis.类似的情况很多,况且暴露越多的端口也越危险.
+
+`bridge`网络无法访问宿主机的端口,因此常见的用法是将依赖的服务放到同一个stack,在同一个stack下会默认创建一个网络,同一个stack中的service都可以使用service的名字作为hostname相互访问.
+
+> 例6: [上例stack中的redis不再暴露给外网]()
+
+```yml
+version: "2.4"
+services:
+  redis: 
+    image: redis:latest
+  webapp:
+    ...
+    environment: 
+      REDIS_URL: "redis://redis:6379"
+    ...
+```
+我们只需要将redis暴露的端口去掉,并且使用`redis`作为redis连接的hostname.
