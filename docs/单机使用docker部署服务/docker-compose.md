@@ -450,9 +450,15 @@ depends_on:
   ...
 ```
 
-> 例5:修改例4,约束依赖关系
+> 例5:[修改例4,约束依赖关系](https://github.com/hsz1273327/TutorialForDocker/tree/helloworld-with-redis-depends_on)
 
 ```yml
+version: "2.4"
+  ...
+    webapp:
+     ...
+     depends_on:
+      - redis
 ```
 
 ### 使用bridge网络联通服务
