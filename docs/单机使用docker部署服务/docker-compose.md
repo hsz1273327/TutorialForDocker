@@ -64,7 +64,17 @@ docker-compose的语法详细的还是因该去看[官方文档](https://docs.do
 
 #### `build`
 
-如果是在开发调试阶段,那每次都多一步编译创建镜像有点太过麻烦,这种时候就可以使用`build`命令在部署的时候指定编译创建镜像.
+如果是在开发调试阶段,那每次都多一步编译创建镜像有点太过麻烦,这种时候就可以使用`build`命令在部署的时候指定编译创建镜像.其主要形式如下:
+
+```yml
+...
+build:
+  context: ./dir
+  dockerfile: Dockerfile-alternate
+  args:
+    buildno: 1
+...
+```
 
 `build`下面可以设置编译的配置,主要的设置项有:
 
@@ -75,6 +85,14 @@ docker-compose的语法详细的还是因该去看[官方文档](https://docs.do
 当然还有其他的配置项,但不常用,需要的话可以去文档里查
 
 如果一个`service`下既有`image`又有`build`,那么会在编译创建完镜像后将`image`中指定的名字赋值给编译成的镜像.
+
+如果要使用的`dockerfile`没有什么参数,命名就叫`Dockerfile`(忽略大小写)那么可以使用简写形式:
+
+```yml
+...
+build: ./dir
+...
+```
 
 ### 指定部署行为
 
