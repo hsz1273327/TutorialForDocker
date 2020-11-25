@@ -313,6 +313,7 @@ services:
 ```
 
 然后修改`docker-compose.yml`文件,为其加上挂载文件系统的配置.
+
 + `docker-compose.yml`
 
 ```yml
