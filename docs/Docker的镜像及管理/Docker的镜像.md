@@ -1,5 +1,6 @@
 # Docker的镜像
 
+Docker的镜像比较类似于虚拟机中的镜像,它是系统状态的序列化保存.所有镜像都是通过一个64位十六进制字符串(内部是一个256bit的值)来标识的. 为简化使用,前12个字符可以组成一个短ID可以在命令行中使用.短ID还是有一定的碰撞机率,所以服务器总是返回长ID.
 
 ## Docker镜像的原理
 
@@ -14,8 +15,6 @@ docker的镜像是底层由引导文件系统(bootfs),上层由文件系统叠�
 ### 写时复制
 
 当docker第一次启动容器时,时间上读写层是空的,当文件系统发生变化时这些变化都会应用到这一层,它会从只读层将要改的文件复制到读写层,然后所有修改都在读写层而不会影响只读层而只读层的文件将在使用时代替读写层的对应文件.这种机制便是写时复制,利用这一机制我们可以快速构建镜像并运行包含我们自己应用的容器.
-
-
 
 ## 构建镜像的基本工作流
 
@@ -33,6 +32,7 @@ docker的镜像是底层由引导文件系统(bootfs),上层由文件系统叠�
 ```Dockerfile
 动作(指令) + shell命令
 ```
+
 其中动作为`Dockerfile`的关键字,为大写,而后面的shell指令就是一般在shell中使用的指令
 
 而以`#`开头的语句都是注释
@@ -56,34 +56,33 @@ EXPOSE <port>
 ```
 
 其中:
-+ FROM :指定基镜像
-+ MAINTAIER :指定作者信息
-+ RUN :默认用`/bin/sh -c`来执行后面的命令
-+ EXPOSE :指定向外公开的端口
 
++ `FROM`:指定基镜像
++ `MAINTAIER`:指定作者信息
++ `RUN`:默认用`/bin/sh -c`来执行后面的命令
++ `EXPOSE`:指定向外公开的端口
 
 ### Dockerfile支持的指令汇总
 
-指令|说明
----|---
-`FROM`|选择基镜像
-`MAINTAINER`|设定作者和作者有邮箱
-`WORKDIR`|设定一个工作目录,类似cd的作用
-`ENV`|设定环境变量
-`USER`|以什么用户身份运行
-`ADD`|将构建环境下的文件和目录复制到镜像中
-`COPY`|类似ADD,但不会做文件提取和解压
-`RUN`|运行bash命令
-`EXPOSE`|设定外露端口
-`CMD`|类似RUN,指定容器启动时运行的命令
-`ENTRYPOINT`|类似CMD,但不会被`docker run`命令覆盖
-`VOLUME`|为添加卷增加挂载点
-`ARG`|声明编译构造镜像时使用的参数,其形式为`ARG <name>[=<default value>]`,在编译时使用`--build-arg <key>=<value>`来传入参数
-`ONBUILD`|触发器,当一个镜像被用作其他镜像的基础镜像的时候会触发运行
-`LABEL`|用于为构建好的镜像标识一些元信息,编译出镜像后可以使用`docker image inspect --format='' 镜像id`来查看
-`STOPSIGNAL`|允许用户自定义应用在收到`docker stop`所发送的信号
-`HEALTHCHECK`|设定健康检测规则.
-
+| 指令          | 说明                                                                                                                  |
+| ------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `FROM`        | 选择基镜像                                                                                                            |
+| `MAINTAINER`  | 设定作者和作者有邮箱                                                                                                  |
+| `WORKDIR`     | 设定一个工作目录,类似cd的作用                                                                                         |
+| `ENV`         | 设定环境变量                                                                                                          |
+| `USER`        | 以什么用户身份运行                                                                                                    |
+| `ADD`         | 将构建环境下的文件和目录复制到镜像中                                                                                  |
+| `COPY`        | 类似ADD,但不会做文件提取和解压                                                                                        |
+| `RUN`         | 运行bash命令                                                                                                          |
+| `EXPOSE`      | 设定外露端口                                                                                                          |
+| `CMD`         | 类似RUN,指定容器启动时运行的命令                                                                                      |
+| `ENTRYPOINT`  | 类似CMD,但不会被`docker run`命令覆盖                                                                                  |
+| `VOLUME`      | 为添加卷增加挂载点                                                                                                    |
+| `ARG`         | 声明编译构造镜像时使用的参数,其形式为`ARG <name>[=<default value>]`,在编译时使用`--build-arg <key>=<value>`来传入参数 |
+| `ONBUILD`     | 触发器,当一个镜像被用作其他镜像的基础镜像的时候会触发运行                                                             |
+| `LABEL`       | 用于为构建好的镜像标识一些元信息,编译出镜像后可以使用`docker image inspect --format='' 镜像id`来查看                  |
+| `STOPSIGNAL`  | 允许用户自定义应用在收到`docker stop`所发送的信号                                                                     |
+| `HEALTHCHECK` | 设定健康检测规则.                                                                                                     |
 
 ### 镜像的健康检测
 
@@ -92,14 +91,12 @@ EXPOSE <port>
 + `HEALTHCHECK NODE`,其含义为不继承父镜像的HEALTHCHECK.
 
 + `HEALTHCHECK [options] CMD command`其含义为镜像设置默认健康减查,其执行减查的指令就是`CMD command`的内容,`options`部分则用于设定执行行为的触发机制,`options`可选的参数包括:
-  + `interval=DURATION`从容器运行起来开始计时`interval`的时间后进行第一次健康检查,随后每次间隔`interval`进行一次健康检查.
-  + `start-period=DURATION`,默认为`0s`如果指定这个参数则必须大于`0s`,`start-period`用于设置容器启动需要的启动时间,在这个时间段内如果检查失败不会记录失败次数;如果在启动时间内成功执行了健康检查则容器将被视为已经启动,此后如果在启动时间内再次出现检查失败则会记录失败次数.
-  + `timeout`:设定执行`command`需要时间.比如`curl`一个地址,如果超过`timeout`秒则认为超时是错误的状态,此时每次健康检查的时间是`timeout+interval`
-  + `retries`:连续检查`retries`次,如果结果都是失败状态则认为这个容器是unhealth的.
-
+    + `interval=DURATION`从容器运行起来开始计时`interval`的时间后进行第一次健康检查,随后每次间隔`interval`进行一次健康检查.
+    + `start-period=DURATION`,默认为`0s`如果指定这个参数则必须大于`0s`,`start-period`用于设置容器启动需要的启动时间,在这个时间段内如果检查失败不会记录失败次数;如果在启动时间内成功执行了健康检查则容器将被视为已经启动,此后如果在启动时间内再次出现检查失败则会记录失败次数.
+    + `timeout`:设定执行`command`需要时间.比如`curl`一个地址,如果超过`timeout`秒则认为超时是错误的状态,此时每次健康检查的时间是`timeout+interval`
+    + `retries`:连续检查`retries`次,如果结果都是失败状态则认为这个容器是unhealth的.
 
 对于许多服务或程序一个常见的需求就是健康检测了,我们通常写一个服务都会给一个`ping-pong`接口用于检测心跳防止服务起着但是已经不再可用.不用docker的话通常我们是在外部定义一个定时任务隔段时间请求一次来确保可用.而如果是docker的话就可以设置健康检查脚本了(前提是镜像中有对应的工具支持).当然了更加推荐的是在构建镜像时定义健康检查.
-
 
 > 例1: [为我们的helloworld项目提供健康检测功能](https://github.com/hsz1273327/TutorialForDocker/tree/helloworld-with-healthcheck)
 
@@ -128,16 +125,16 @@ CMD [ "python" ,"app.py"]
 docker容器的执行方式有两种
 
 + `exec模式`这个模式相当于在命令行中直接执行命令,它的进程号会为`1`,这也就意味着docker要关闭容器时可以优雅的关闭不容易造成僵尸进程.通常也比较推荐这种方式.
-+ `shell模式`这个模式相当于执行`/bin/sh -c <你的命令> `,因此它的`1`号进程实际上是bash进程,这样就有可能造成僵尸进程.
++ `shell模式`这个模式相当于执行`/bin/sh -c <你的命令>`,因此它的`1`号进程实际上是bash进程,这样就有可能造成僵尸进程.
 
 下面是CMD和ENTRYPOINT关键字中不同模式的写法:
 
-命令形式|模式
----|---
-`CMD ["executable","param1","param2"]`|`exec模式`
-`CMD command param1 param2`|`shell模式`
-`ENTRYPOINT ["executable", "param1", "param2"]`|`exec模式`
-`ENTRYPOINT command param1 param2`|`shell模式`
+| 命令形式                                        | 模式        |
+| ----------------------------------------------- | ----------- |
+| `CMD ["executable","param1","param2"]`          | `exec模式`  |
+| `CMD command param1 param2`                     | `shell模式` |
+| `ENTRYPOINT ["executable", "param1", "param2"]` | `exec模式`  |
+| `ENTRYPOINT command param1 param2`              | `shell模式` |
 
 总结下就是后面的参数是**字符串列表**的就是`exec模式`,直接是命令的则是`shell模式`
 
@@ -147,11 +144,11 @@ docker容器的执行方式有两种
 
 下面是各种情况的矩阵表
 
----|未定义`ENTRYPOINT`|`shell模式`的`ENTRYPOINT`|`exec模式`的`ENTRYPOINT`
----|---|---|---
-未定义`CMD`|报错退出|`/bin/sh -c <ENTRYPOINT中的命令>`|`<ENTRYPOINT中的命令>`
-`shell模式`的`CMD`|`/bin/sh -c <CMD中的命令>`|`/bin/sh -c <ENTRYPOINT中的命令>`+回车+`/bin/sh -c <CMD中的命令>`|`<ENTRYPOINT中的命令>`+回车+`/bin/sh -c <CMD中的命令>`
-`exec模式`的`CMD`|`<CMD中的命令>`|`/bin/sh -c <ENTRYPOINT中的命令>`+回车+`<CMD中的命令>`|`<ENTRYPOINT中的命令>`+`<CMD中的命令>`
+| ---                | 未定义`ENTRYPOINT`         | `shell模式`的`ENTRYPOINT`                                         | `exec模式`的`ENTRYPOINT`                               |
+| ------------------ | -------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------ |
+| 未定义`CMD`        | 报错退出                   | `/bin/sh -c <ENTRYPOINT中的命令>`                                 | `<ENTRYPOINT中的命令>`                                 |
+| `shell模式`的`CMD` | `/bin/sh -c <CMD中的命令>` | `/bin/sh -c <ENTRYPOINT中的命令>`+回车+`/bin/sh -c <CMD中的命令>` | `<ENTRYPOINT中的命令>`+回车+`/bin/sh -c <CMD中的命令>` |
+| `exec模式`的`CMD`  | `<CMD中的命令>`            | `/bin/sh -c <ENTRYPOINT中的命令>`+回车+`<CMD中的命令>`            | `<ENTRYPOINT中的命令>`+`<CMD中的命令>`                 |
 
 因此也可以看出如果两个都定义,那比较合适的用法是在`exec模式`的`ENTRYPOINT`中指定执行程序,`exec模式`的`CMD`中指定默认的执行参数,而在部署容器时则通过声明`command`字段来覆盖镜像中的`CMD`部分达到灵活执行的目的.注意`command`字段同样也要用**字符串列表**的形式声明参数.
 
@@ -172,6 +169,22 @@ docker build -t hsz1273327/myimage:latest .
 ```
 
 它的含义是在当前目录下找`Dockerfile`文件构建一个标签为`hsz1273327/myimage:latest`的镜像.
+
+### 跨指令集编译镜像
+
+如果我们的基镜像是arm版而我们的编译环境为x86-64,那很遗憾我们无法成功编译镜像.但实际上也不是没有办法,我们可以设置开启[buildx](https://docs.docker.com/buildx/working-with-buildx/)特性.注意buildx是一项实验特性,目前并不稳定.但可以用.
+
+我们需要在docker设置中开启这一特性:
+
++ `daemon.json`
+
+    ```json
+    {
+    "experimental": true
+    }
+    ```
+
+然后类似执行`docker build`,我们执行`docker buildx build .`
 
 ### 镜像的标签
 
