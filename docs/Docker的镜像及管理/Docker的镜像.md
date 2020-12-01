@@ -210,12 +210,23 @@ Platforms: linux/amd64, linux/arm64, linux/riscv64, linux/ppc64le, linux/s390x, 
 在确保我们的编译器是`running`状态时我们可以执行镜像的编译操作:
 
 ```bash
-docker buildx build --platform={指定平台} -t {tag} . [--push]
+docker buildx build --platform={指定平台} -t {tag} . [--load|--push]
 ```
 
-`docker buildx build`命令类似`docker build`,除此之外还可以使用flag`--push`直接将镜像推送到镜像仓库
+`docker buildx build`命令类似`docker build`,除此之外还可以使用flag`--push`直接将镜像推送到镜像仓库,而`--load`则会打包到本地.
 
-需要注意`docker buildx build`命令可能会在拉取arm镜像的时候报`TLS handshake timeout`错误,可以通过设置docker的配置:
+实测`--push`相当不稳定,经常会`io timeout`.一个比较稳妥的做法是先每个平台单独执行`docker buildx build --load`,注意`-t`中的tag要标明平台,即`xxxx:arm64-0.0.0`这种形式.然后在整体执行一次`docker buildx build --push`.能推送成功最好,不行我们可以手动执行`docker manifest`操作,将编译生成的不同平台的镜像手动打包上传
+
+```bash
+docker manifest create {manifest_tag} \
+{platform_tag} \
+{platform_tag} \
+...
+
+docker manifest push {manifest_tag}
+```
+
+需要注意`docker buildx build`命令可能会在拉取arm镜像的时候报`TLS handshake timeout`错误,可以通过设置docker的配置增大对大文件的支持来缓解:
 
 ```json
 {
@@ -223,7 +234,7 @@ docker buildx build --platform={指定平台} -t {tag} . [--push]
 }
 ```
 
-来解决.
+来解决.这是因为本质上我们的编译过程是在docker容器中执行的,宿主机网络的mtu一般是1500,而容器中一般会比这个值略小(1450的样子),我们只有将`mtu`参数设置的至少和容器中的一致tls才不容易出错.1300也是一个经验值.
 
 #### dockerfile中的跨平台设置
 
