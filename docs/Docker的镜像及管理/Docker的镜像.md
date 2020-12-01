@@ -8,7 +8,7 @@ docker的镜像是底层由引导文件系统(bootfs),上层由文件系统叠�
 
 它的结构如图:
 
-![docker镜像的结构](imgs/docker-filesystems-multilayer.png)
+![docker镜像的结构](../IMGS/docker-filesystems-multilayer.png)
 
 正如图上所画,其实镜像的最顶层就是容器(可写容器),而镜像是一层一层叠加上去的,最下面的镜像就是基础镜像,我们用的ubuntu,其实只是ubuntu的最小安装而已,然后叠一层vim再叠一层啥的.
 
@@ -43,7 +43,7 @@ Dockerfile的通用格式是:
 
 ```Dockerfile
 # Version: x.x.x
-FROM <baseimg>:<tag>
+FROM [--platform=xxxx] <baseimg>:<tag>
 MAINTAINER <author> "<email>"
 RUN <cmd>
 .
@@ -184,7 +184,69 @@ docker build -t hsz1273327/myimage:latest .
     }
     ```
 
-然后类似执行`docker build`,我们执行`docker buildx build .`
+然后我们需要创建一个编译器:
+
+```bash
+docker buildx create --use --name mybuilder
+```
+
+创建过程中会去拉取镜像`buildkit`,在创建完成后我们可以通过`docker buildx inspect mybuilder --bootstrap`查看这个编译器的状态
+
+```bash
+Name:   mybuilder
+Driver: docker-container
+
+Nodes:
+Name:      mybuilder0
+Endpoint:  npipe:////./pipe/docker_engine
+Status:    running
+Platforms: linux/amd64, linux/arm64, linux/riscv64, linux/ppc64le, linux/s390x, linux/386, linux/arm/v7, linux/arm/v6
+```
+
+一般来说我们会用到的平台也就是`linux/amd64`,`linux/arm/v7`,`linux/arm/v6`.
+
+如果我们的编译器不是`running`状态可以使用`docker buildx use {编译器名}`来指定激活编译器.
+
+在确保我们的编译器是`running`状态时我们可以执行镜像的编译操作:
+
+```bash
+docker buildx build --platform={指定平台} -t {tag} . [--push]
+```
+
+`docker buildx build`命令类似`docker build`,除此之外还可以使用flag`--push`直接将镜像推送到镜像仓库
+
+需要注意`docker buildx build`命令可能会在拉取arm镜像的时候报`TLS handshake timeout`错误,可以通过设置docker的配置:
+
+```json
+{
+  "mtu": 1300
+}
+```
+
+来解决.
+
+#### dockerfile中的跨平台设置
+
+Docker Hub支持多平台使用相同的tag(multi-arch images/multi-manifest特性),harbor也支持这一特性.基于这一特性,我们可以通过指定平台,导入相同名命的基镜像构造多平台的镜像.这只需要在dockerfile的`FROM`字段中加入`--platform`参数
+
+```dockerfile
+FROM --platform=$TARGETPLATFORM python:3.9
+...
+
+```
+
+dockerfile中支持的与跨平台相关的上下文变量有:
+
+| 变量             | 说明                                         | 取值范围                                     |
+| ---------------- | -------------------------------------------- | -------------------------------------------- |
+| `TARGETPLATFORM` | 构建镜像的目标平台                           | `linux/amd64`,`linux/arm/v7`,`linux/amd64`等 |
+| `TARGETOS`       | 目标平台OS类型                               | `linux`,`windows`等                          |
+| `TARGETARCH`     | 目标平台架构类型                             | `amd64`,`arm`,`arm64`等                      |
+| `TARGETVARIANT`  | 目标平台架构类型的子类型,主要时arm架构的变种 | `v7`,`v6`等                                  |
+| `BUILDPLATFORM`  | 构建镜像主机平台                             | `linux/amd64`等                              |
+| `BUILDOS`        | 构建镜像主机平台的OS类型                     | `linux`,`windows`等                          |
+| `BUILDARCH`      | 构建镜像主机平台的架构类型                   | `amd64`,`arm`,`arm64`等                      |
+| `BUILDVARIANT`   | 构建镜像主机平台的架构类型的子类型           | `v7`,`v6`等                                  |
 
 ### 镜像的标签
 
@@ -214,6 +276,7 @@ docker login [-p <密码> -u <用户名>] [私有仓库hostname[:私有仓库端
 ```bash
 docker push dockerhub账号/镜像名[:版本]
 ```
+
 或者
 
 ```bash
@@ -228,49 +291,32 @@ docker push 私有镜像仓库地址/仓库二级目录名/镜像名[:版本]
 
 我们多数时候需要的镜像都是来自于dockerhub,但docker hub毫无疑问的部署在墙外,因此在墙内的我们需要设置镜像站,好在官方(`https://registry.docker-cn.com`),网易(`https://hub-mirror.c.163.com`),和科大(`https://docker.mirrors.ustc.edu.cn/`)都提供了镜像站.
 
-配置方法是:
+配置方法是修改配置文件中的`registry-mirrors`项:
 
-+ `windows/mac`,在`docker desktop`的设置项中进入`Docker Engine`,左侧会有一个json形式的配置文件,在其中加上
+```json
+{
+  ...
+  "registry-mirrors": [
+    "https://registry.docker-cn.com",
+    "https://hub-mirror.c.163.com",
+    "https://docker.mirrors.ustc.edu.cn/"
+  ],
+  ...
+}
 
-  ```json
-  {
-    ...
-    "registry-mirrors": [
-      "https://registry.docker-cn.com",
-      "https://hub-mirror.c.163.com",
-      "https://docker.mirrors.ustc.edu.cn/"
-    ],
-    ...
-  }
-  
-  ```
-
-+ `linux`在文件`/etc/docker/daemon.json`中添加(如果没有就创建)
-
-  ```json
-  {
-    ...
-    "registry-mirrors": [
-      "https://registry.docker-cn.com",
-      "https://hub-mirror.c.163.com",
-      "https://docker.mirrors.ustc.edu.cn/"
-    ],
-    ...
-  }
-  ```
-
-
-## 镜像管理
-
-### 查找镜像
-
-### 查看镜像属性
-
-### 删除镜像
-
-有时候我希望删除一些镜像,这时候可以使用
-
-```shell
-docker rmi <img>
 ```
-#### 批量删除无用标签镜像
+
+## 本地镜像管理
+
+本地的镜像管理可以汇总为如下表格:
+
+| 说明                     | 命令                                                               |
+| ------------------------ | ------------------------------------------------------------------ |
+| 查看本地镜像             | `docker images`                                                    |
+| 搜索`docker hub`中的镜像 | `docker search {imagesname}`                                       |
+| 为已有的镜像打标签       | `docker tag {iid} {tag}`                                           |
+| 删除镜像                 | `docker rmi {iid}`                                                 |
+| 查看镜像属性             | `docker inspect {iid}`                                             |
+| 批量删除无标签镜像       | `docker rmi  (docker images --filter dangling=true -q --no-trunc)` |
+| 导出镜像                 | `docker save {iid} > {name}.tar`                                   |
+| 导入镜像                 | `docker load < {name}.tar`                                         |

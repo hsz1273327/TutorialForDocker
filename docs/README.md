@@ -10,35 +10,35 @@
 
 我们在自己之前的博文中也已经介绍过一些运维工具,如[fabric用于批量部署](http://blog.hszofficial.site/introduce/2015/03/15/%E4%BD%BF%E7%94%A8Fabric%E5%81%9A%E6%89%B9%E9%87%8F%E9%83%A8%E7%BD%B2/),[supervisor用于自动重启服务,监控服务状态](http://blog.hszofficial.site/introduce/2015/02/19/%E4%BD%BF%E7%94%A8Supervisor%E5%81%9A%E6%9C%8D%E5%8A%A1%E7%9B%91%E6%8E%A7%E5%92%8C%E7%AE%A1%E7%90%86/).这些东西通常是针对的生产环境的单一问题.而docker解决的问题和他不同,可以认为docker是试图使用一套生态解决从开发到部署过程中的全部问题.docker解决的问题可以归结为如下几点:
 
-### 部署环境差异
+1. 部署环境差异
 
-在传统的软件开发流程中开发和部署是割裂的--开发在开发环境,测试在测试环境,最终部署在生产环境.
+    在传统的软件开发流程中开发和部署是割裂的--开发在开发环境,测试在测试环境,最终部署在生产环境.
 
-![传统的软件][1]
+    ![传统的软件][1]
 
-环境隔离本身是合理必要的,这样不同阶段的开发任务不会相互影响,可以提高效率.但这也带来了问题--不同环境的配置和执行环境会有差异,这就会出现一些因为这些差异引起的问题,比如缺少依赖/依赖版本不一致等.这是非常常见的问题.
+    环境隔离本身是合理必要的,这样不同阶段的开发任务不会相互影响,可以提高效率.但这也带来了问题--不同环境的配置和执行环境会有差异,这就会出现一些因为这些差异引起的问题,比如缺少依赖/依赖版本不一致等.这是非常常见的问题.
 
-Docker解决了运行环境和配置问题,方便发布,也就方便做持续集成.因此在日益强调持续集成持续发布的今天,docker成为了基石.
+    Docker解决了运行环境和配置问题,方便发布,也就方便做持续集成.因此在日益强调持续集成持续发布的今天,docker成为了基石.
 
-### 资源争抢
+2. 资源争抢
 
-我们都希望生产环境尽量充分的利用机器资源,因此我们不可能奢侈的让一台机器只执行一个程序,但如果一个程序超过我们预期的使用了机器的资源,甚至直接耗尽了机器的资源,那就会影响到同一机器上的其他程序,甚至造成不得不重启机器的恶性事件,直接影响业务造成经济损失.使用docker可以通过限制资源避免这一情况.
+    我们都希望生产环境尽量充分的利用机器资源,因此我们不可能奢侈的让一台机器只执行一个程序,但如果一个程序超过我们预期的使用了机器的资源,甚至直接耗尽了机器的资源,那就会影响到同一机器上的其他程序,甚至造成不得不重启机器的恶性事件,直接影响业务造成经济损失.使用docker可以通过限制资源避免这一情况.
 
-### 执行环境交叉冲突
+3. 执行环境交叉冲突
 
-因为我们为了最大化利用机器就会将多个软件部署在同一台机器上,由于软件的依赖往往不同,很容易就会出现软件A依赖版本0.1的库,软件B依赖版本0.2的库,如果库向下兼容还好说,如果不兼容那很容易就会A软件无法执行.
+    因为我们为了最大化利用机器就会将多个软件部署在同一台机器上,由于软件的依赖往往不同,很容易就会出现软件A依赖版本0.1的库,软件B依赖版本0.2的库,如果库向下兼容还好说,如果不兼容那很容易就会A软件无法执行.
 
-各种编程语言的社区都或多或少的为避免依赖冲突提供解决方案.
+    各种编程语言的社区都或多或少的为避免依赖冲突提供解决方案.
 
-比如python中从开发调试测试到部署,有一系列简单好用的工具:
+    比如python中从开发调试测试到部署,有一系列简单好用的工具:
 
-+ 开发使用标准库`venv`用于构造虚拟环境隔离依赖
-+ 依赖管理使用`pip`
-+ 批量部署使用`fabric`
+    + 开发使用标准库`venv`用于构造虚拟环境隔离依赖
+    + 依赖管理使用`pip`
+    + 批量部署使用`fabric`
 
-在js中默认就是使用虚拟环境,只需要通过git在目标机器上拉取仓库,并执行`npm install`就可以完美部署好执行环境;
+    在js中默认就是使用虚拟环境,只需要通过git在目标机器上拉取仓库,并执行`npm install`就可以完美部署好执行环境;
 
-而如果是Go那就更加简单了,本地可以交叉编译目标平台的可执行文件,编译完成后直接放上去就可以执行.
+    而如果是Go那就更加简单了,本地可以交叉编译目标平台的可执行文件,编译完成后直接放上去就可以执行.
 
 从运维的角度来说docker的所谓一次编辑随处部署在多数情况下是多余的.那为什么还要用docker呢?
 
@@ -64,49 +64,36 @@ docker容器相当轻量,相当于一个略微复杂的进程,因此也不推荐
 
 ## 需要的知识储备
 
-本文需要有如下知识储备:
+本系列文章需要有如下知识储备:
 
-+ 使用python构建简单http服务
++ 使用python构建简单http服务(可以看懂例子)
 + 了解yaml格式
 + linux命名行基础
 
-## docker执行环境的安装
+## Docker体系的组成
 
-docker是开源软件,在linux上安装可以确定好自己的系统发行版本,然后参考[官网的指南](https://docs.docker.com/install/linux/docker-ce/centos/)安装.如果是个新机器一般也可以直接使用如下一组命令
+docker体系的核心部件可以用下面一张图来概括
 
-1. 下载安装脚本(第一次安装)
+![docker的核心部件](IMGS/docker的组成.jpg)
 
-    ```shell
-    curl -sSL https://get.docker.com | sh
-    ```
+除了核心部件外,都是非必须的组件,他们通常需要额外安装或者额外配置,总结如下:
 
-2. 配置自启动
- 
-    将docker注册到开机自启动
+| 组件             | 功能                                        | 解决的问题   | 启用方法       |
+| ---------------- | ------------------------------------------- | ------------ | -------------- |
+| `Docker Desktop` | 让windows/mac上借助虚拟机技术运行docker套件 | 跨平台       | 额外安装       |
+| `docker-compose` | 使用yaml配置文件编排部署容器                | 服务编排问题 | 额外安装       |
+| `网络API`        | 启用接口让远程机器可以调用本地docker        | 远程控制     | 修改配置       |
+| `docker swarm`   | 将多台宿主机组成集群统一调度资源            | 集群化       | 使用命令初始化 |
 
-    ```shell
-    sudo usermod -aG docker pi
+在这之外还有一些比较主流的第三方工具可以作为额外扩展,这类工具一般都需要额外安装:
 
-    sudo systemctl enable docker
+| 组件                  | 功能                             | 解决的问题 |
+| --------------------- | -------------------------------- | ---------- |
+| `kubernetes`俗称`k8s` | 将多台宿主机组成集群统一调度资源 | 集群化     |
+| `portainer`           | 管理与之相连的docker环境         | 可视化     |
+| `harbor`              | 可视化的管理存储镜像             | 可视化     |
 
-    sudo systemctl start docker
-    ```
-
-3. 将用户添加进docker组
-
-    ```shell
-    sudo gpasswd -a ${USER} docker
-    ```
-
-    之后重启服务器或者重启docker服务即可
-
-    ```shell
-    sudo service docker restart
-    ```
-
-在windows和mac上则需要使用虚拟机,不过我们也不需要额外安装虚拟机,可以去官网下载对应的工具集[Docker Desktop](https://hub.docker.com/?overlay=onboarding)安装即可
-
-## 组成和使用流程
+## Docker的使用流程
 
 docker基本上有两个核心概念
 
@@ -118,93 +105,43 @@ docker的使用流程也是分裂为两个部分.即:
 + 构造镜像
 + 利用镜像执行容器
 
-## helloworld
+因此天然的,开发和部署被分隔开了,在现代的DevOps体系下通常构造镜像的工作会由开发人员执行;编排镜像的工作则会由项目主管进行;而部署操作则会交给CI/CD工具.
 
-按照传统,我们的第一个例子是一个helloworld,我们来演示下docker的最简单使用流程.例子在[python_docker_example](https://github.com/hszofficial/python_docker_example),这个例子所在的仓库也是我们后续文章使用的仓库,这个例子在[helloworld分支](https://github.com/hsz1273327/TutorialForDocker/tree/helloworld).我们用flask构造一个helloworld服务,借助它来直观的感受下docker的使用流程.
+在构造镜像部分,主要要解决的问题有两个:
 
-首先确认好你有docker环境.然后我们创建如下文件:
++ 跨平台跨指令集问题
++ 镜像的存储和分发问题
 
-+ `requirements.txt`文件用于记录程序的依赖
+在利用镜像执行容器部分,主要要解决的是容器的管理问题,主要包括:
 
-    ```txt
-    sanic==20.6.3
-    ```
++ 网络管理问题
++ 数据管理问题
++ 服务编排问题
++ 集群化部署问题
 
-+ `pip.conf`文件,用于pip翻墙(非必须)
+这些在docker体系下都有对应的解决方案.
 
-    ```conf
-    [global]
-    index-url = https://pypi.tuna.tsinghua.edu.cn/simple 
-    ```
-
-+ `app.py`文件用于构造flask的hellowoeld程序
-
-    项目的功能非常简单--访问`/`后返回一个`helloworld`文本,代码如下
-
-    ```python
-    from sanic.response import json
-
-    app = Sanic("hello_example")
-
-    @app.route("/")
-    async def test(request):
-    return json({"hello": "world"})
-
-    if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
-    ```
-
-+ `Dockerfile`文件用于声明如何构造镜像
-
-    先不细究dockerfile语法,下面是示例:
-
-    ```dockerfile
-    FROM python:3.8
-    ADD requirements.txt /code/requirements.txt
-    ADD pip.conf /etc/pip.conf
-    WORKDIR /code
-    RUN pip install --upgrade pip
-    RUN pip install -r requirements.txt
-    ADD app.py /code/app.py
-    CMD [ "python" ,"app.py"]
-    ```
-
-+ `build_image.sh/build_image.ps1`文件(可选)用于方便执行构造镜像的操作.
-
-    ```bash
-    docker build -t python_docker_example:helloworld .
-    ```
-
-    执行这个命令会构造一个标签为`python_docker_example:helloworld`的镜像
-
-+ `run_container.sh/run_container.ps1`文件(可先)用于方便执行使用镜像运行容器
-
-    ```bash
-    docker run -d -p 5000:5000 python_docker_example:helloworld
-    ```
-
-    执行这个命令会使用上面构造的标签为`python_docker_example:helloworld`的镜像构造一个容器来运行我们的程序.
-    我们将其设置为后台运行,并且将宿主机的5000端口与容器的5000端口映射.我们就可以通过访问本地的5000端口来访问程序了.
+但是还是那句话--没有银弹,docker可以解决很多问题,但不是万能的.使用它总体来说在多数情况下是利大于弊的,但还是要具体问题具体分析.
 
 ## 克服使用docker的心理障碍
 
-不少不了解的人使用docker会有顾虑,主要是如下几个方面,这边一一给出解答
+不少不了解的人使用docker会有顾虑,主要是如下几个方面,这边一一给出解答.
 
-### docker太重了,会额外占用资源
+> docker太重了,会额外占用资源
 
 这个顾虑不是全无道理,docker比起虚拟机确实相当轻量,但毕竟是虚拟化技术,会有额外资源消耗不可避免.你要明白一点,容器的功能不是docker提供的,相关技术都是Linux内核提供的.
 docker只是一个容器的管理器而已.正因为这样,Docker不能离开Linux系统运行.损耗的话,理论上对CPU来说只有1% ~3%,内存也极小.损失基本只出现在I/O上,包括网络I/O和文件系统I/O.
 这两者就要看不同的实现了.
-物理机上直接对网卡hack可以达到几乎无损失的网络,其他网络方式除非是`-host`模式都会有不同程度的损失.也是看方案的,这块我们会在后文[Docker的Swarm集群]部分详细说明.
+物理机上直接对网卡hack可以达到几乎无损失的网络,其他网络方式除非是`--host`模式都会有不同程度的损失.也是看方案的,这块我们会在后文[Docker的Swarm集群]部分详细说明.
 
 文件系统同样,不同的实现性能损失不同.但是对于99%的应用程序来说根本不需要考虑这个损失.即便是要考虑,结合docker体系对开发生产力的提升来说大多数场景下也是利大于弊的.
 
 IBM有论文[An Updated Performance Comparison of Virtual Machines
 and Linux Containers](https://domino.research.ibm.com/library/cyberdig.nsf/papers/0929052195DD819C85257D2300681E7B/$File/rc25482.pdf)对其已经做出了详细评测
 
-### docker镜像/layout网络/log会占用大量硬盘资源
+> docker镜像/layout网络/log会占用大量硬盘资源
 
-这个问题更多的时候是使用docker的方式出了问题,就像用刀叉的不能像用筷子的一样夹菜吃一样,用docker的服务器运维也不能和裸机一样.
+这个问题更多的时候是使用docker的方式出了问题,就像用刀叉的不能像用筷子的一样夹菜吃一样,用docker的服务器运维也不可能和裸机完全一样.
 
 首先必须承认相比裸机,docker是需要额外的硬盘空间的,为了不影响宿主机的正常运行,我们最好将docker的目录迁移到非系统盘,一般常见的操作是使用链接.注意要将原有的数据迁移过去需要先停止docker的运行.我们以centos为例,将docker相关的数据迁移到`/data/docker`目录
 
@@ -227,7 +164,7 @@ systemctl restart docker
 
 2. layout网络
 
-    layout网络是docker默认下最常规的网络类型,会损失大约50%的io性能,但是架不住功能强大,老实说不推荐生产环境使用.推荐使用host网络(几乎100%物理机性能)或者macvlan网络(90%物理机性能)代替
+    layout网络是docker swarm默认下最常规的网络类型,会损失大约50%的io性能,但是架不住功能强大,老实说不推荐生产环境使用.推荐使用host网络(几乎100%物理机性能)或者macvlan网络(90%物理机性能)代替
 
 3. log
 
@@ -236,12 +173,12 @@ systemctl restart docker
 
     但这并不解决log收集的问题,业界比较通用的方法是将log通过logstach收集后输送到kafka最终落库到hive,同时将近期数据存入elasticsearch方便查询分析.这个会在后续文章中介绍.
 
-### 使用docker会需要学习很多额外的东西
+> 使用docker会需要学习很多额外的东西
 
 那必须的,docker几乎是一个完全不同于传统的体系.但docker的核心内容并不多,也不需要一开始就什么都学,计算机领域只有能大幅提升生产力的工具才能活下来,docker的成功已经证明它的价值.
 如果只是因为不想学新东西就放弃的话就白白错过了一个大幅提高生产力的好工具.
 
-### docker不安全
+> docker不安全
 
 能提出这个疑惑的人应该是比较有水平的.先说结论:docker本身默认情况下是相对安全的,尤其是你在容器中通过非特权用户运行进程时.
 
@@ -252,7 +189,7 @@ systemctl restart docker
 1. docker服务体系的安全性
 2. docker镜像的安全性
 
-#### 增强docker服务体系安全性的措施
+>> 增强docker服务体系安全性的措施
 
 docker服务体系的安全性也可以认为是容器技术本身的安全性.Docker利用Namespace实现了6项隔离.看似完整,实际上依旧没有完全隔离Linux资源,比如`/proc,/sys,/dev/sd*`等目录未完全隔离,`SELinux,time,syslog`等所有现有Namespace之外的信息都未隔离.这是docker服务体系的一个安全性隐患,Docker在增强安全性上也可以做很多工作,大致包括下面几个方面:
 
@@ -337,7 +274,6 @@ docker服务体系的安全性也可以认为是容器技术本身的安全性.D
 
     其中的`/path/to/seccomp/profile.json`指向的是Seccomp配置文件,这个配置相当于是一份白名单,如果里面没有内容就会禁用所有的系统调用.
 
-
 5. User Namespace隔离(不推荐)
 
     linux命名空间(Namespace)为运行中的进程提供了隔离,限制他们对系统资源的访问,而进程没有意识到这些限制.为防止容器内的特权升级攻击的最佳方法是将容器的应用程序配置为非特权用户运行,对于其进程必须作为容器中的root用户运行的容器,可以将此用户重新映射到Docker主机上权限较低的用户.映射的用户被分配了一系列UID,这些UID在命名空间内作为从0到65536的普通UID运行,但在主机上没有特权.
@@ -367,7 +303,7 @@ docker服务体系的安全性也可以认为是容器技术本身的安全性.D
     + 可以使用[docker-bench-security](https://github.com/docker/docker-bench-security)检查你的Docker运行环境,如Docker daemon配置,宿主机配置
     + 使用[Sysdig Falco](https://sysdig.com/opensource/falco)可以监视容器的行为,检测容器中是否有异常活动.
 
-#### 增强docker镜像的安全性
+>> 增强docker镜像的安全性
 
 docker本身的安全性通常不需要开发人员关心,默认配置已经相当安全,但镜像的安全性却需要额外留意.根据绿盟2018年3月的研究显示,目前Docker Hub上的镜像76%都存在漏洞.其研究人员拉取了Docker Hub上公开热门镜像中的前十页镜像,对其使用Docker镜像安全扫描工具[Clair](https://github.com/quay/clair)进行了CVE扫描统计,结果显示在一百多个镜像中没有漏洞的只占到24%,包含高危漏洞的占到67%.很多我们经常使用的镜像都包含在其中,如:httpd,Nginx,MySQL等等.
 
@@ -385,7 +321,7 @@ docker镜像攻击安全漏洞主要就3种--Dockerfiles攻击,Docker compose攻
 
 如何防范这些攻击呢,一个最简单通用的方式是使用[harbor](https://github.com/goharbor/harbor)做为镜像仓库,利用其中自带的镜像扫描工具做安全性检查
 
-### docker无法利用gpu资源
+> docker无法利用gpu资源
 
 能问这个问题的一定是有高性能计算需求的人.实际上这个说法并不准确,docker可以利用gpu资源,只是只支持英伟达cuda体系的gpu.
 
@@ -393,7 +329,7 @@ docker从19.03开始已将NVIDIA GPU作为设备本地支持.
 
 目前支持的os环境为linux和windows,但两个操作系统有很大差别
 
-#### linux
+>> linux
 
 linux是docker官方支持的方式,毕竟docker是建立在linux上的工具.要docker使用cuda需要几个依赖:
 
@@ -413,7 +349,7 @@ linux是docker官方支持的方式,毕竟docker是建立在linux上的工具.�
 
 除此之外,nvidia提供了一个基础镜像,无需宿主机安装cuda,镜像名类似nvidia/cuda-9.0-base,nvidia/cuda-10.0-base,但是需要安装两个工具NVIDIA Container Toolkit和nvidia-container-runtime和一些设置.
 
-#### windows
+>> windows
 
 windows上的docker也是通过v-hyper虚拟机实现的,而对gpu的支持也是由微软提供的方案.这个方案依赖如下:
 
@@ -426,7 +362,7 @@ windows上的docker也是通过v-hyper虚拟机实现的,而对gpu的支持也�
 
 用法是在run命令中加入flag`--isolation process`和`--device`,例如`docker run --isolation process --device class/5B45201D-F2F2-4F3B-85BB-30FF1F953599 winml-runner`
 
-关于如何让容器使用gpu资源,我会在后续的[Docker容器部署]文章中介绍哦
+关于如何让容器使用gpu资源,我会在后续的文章中介绍
 
 [1]: IMGS/tradictional_work_process.webp
 [2]: IMGS/镜像的结构.webp
