@@ -243,7 +243,7 @@ Docker最简单的远程调用方式是启动网络api,我们知道`docker`和`d
 
 ### 配置tls
 
-
+配置tls可以让dockerd确保连接它的docker客户端是可信的.
 
 ### 使用网络api
 
