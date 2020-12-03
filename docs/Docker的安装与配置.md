@@ -226,7 +226,7 @@ Docker在Linux下的配置一般在`/etc/docker/daemon.json`,在Docker Desktop�
 
 ## 启动网络API
 
-**注意:启动网络API是不安全的,请尽量不要启用,如果要启用请一定配置tls证书.**
+**注意:启动网络API是不安全的,请尽量不要启用,如果要启用请一定配置[tls证书](https://blog.hszofficial.site/introduce/2020/12/03/TLS%E4%B8%8E%E9%80%9A%E4%BF%A1%E5%AE%89%E5%85%A8/).**
 
 Docker最简单的远程调用方式是启动网络api,我们知道`docker`和`dockerd`是客户端/服务器结构的,默认情况下他们使用本地的`unix socket`(`unix:///var/run/docker.sock`)通信.我们可以修改配置让它通过tcp协议通信从而让外网访问
 
@@ -240,12 +240,6 @@ Docker最简单的远程调用方式是启动网络api,我们知道`docker`和`d
 ```
 
 这样宿主机tcp协议的2376端口就会监听来自外部的请求了
-
-### 配置tls
-
-配置tls可以让dockerd确保连接它的docker客户端是可信的.这要借助OpenSSL生成的证书来实现:
-
-
 
 ### 使用网络api
 

@@ -321,13 +321,15 @@ docker push 私有镜像仓库地址/仓库二级目录名/镜像名[:版本]
 
 本地的镜像管理可以汇总为如下表格:
 
-| 说明                     | 命令                                                               |
-| ------------------------ | ------------------------------------------------------------------ |
-| 查看本地镜像             | `docker images`                                                    |
-| 搜索`docker hub`中的镜像 | `docker search {imagesname}`                                       |
-| 为已有的镜像打标签       | `docker tag {iid} {tag}`                                           |
-| 删除镜像                 | `docker rmi {iid}`                                                 |
-| 查看镜像属性             | `docker inspect {iid}`                                             |
-| 批量删除无标签镜像       | `docker rmi  (docker images --filter dangling=true -q --no-trunc)` |
-| 导出镜像                 | `docker save {iid} > {name}.tar`                                   |
-| 导入镜像                 | `docker load < {name}.tar`                                         |
+| 说明                     | 命令                                                              |
+| ------------------------ | ----------------------------------------------------------------- |
+| 查看本地镜像             | `docker images`                                                   |
+| 搜索`docker hub`中的镜像 | `docker search {imagesname}`                                      |
+| 为已有的镜像打标签       | `docker tag {iid} {tag}`                                          |
+| 删除镜像                 | `docker rmi {iid}`                                                |
+| 强制删除镜像             | `docker rmi -f {iid}`                                             |
+| 查看镜像属性             | `docker inspect {iid}`                                            |
+| 批量删除无标签镜像       | `docker rmi (docker images --filter dangling=true -q --no-trunc)` |
+| 批量删除所有镜像         | `docker rmi (docker images -q)`                                   |
+| 导出镜像                 | `docker save {iid} > {name}.tar`                                  |
+| 导入镜像                 | `docker load < {name}.tar`                                        |
