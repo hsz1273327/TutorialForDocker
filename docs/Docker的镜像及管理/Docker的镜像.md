@@ -203,7 +203,7 @@ Status:    running
 Platforms: linux/amd64, linux/arm64, linux/riscv64, linux/ppc64le, linux/s390x, linux/386, linux/arm/v7, linux/arm/v6
 ```
 
-一般来说我们会用到的平台也就是`linux/amd64`,`linux/arm/v7`,`linux/arm/v6`.
+一般来说我们会用到的平台也就是`linux/amd64`(一般pc),`linux/arm64`(树莓派3,4的硬件),`linux/arm/v7`(树莓派3,4的默认系统).
 
 如果我们的编译器不是`running`状态可以使用`docker buildx use {编译器名}`来指定激活编译器.
 

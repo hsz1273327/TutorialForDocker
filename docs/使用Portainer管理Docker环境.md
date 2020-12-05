@@ -47,15 +47,12 @@ portainer支持docker本地安装,docker swarm集群安装,以及k8s集群安装
 
 + 远程单机环境Docker
     
-    这种环境必须开通docker自带的api加入端点
+    这种环境必须开通docker自带的api加入端点.
 
 
 + swarm集群
 
 + k8s集群
-
-### 远程单机环境Docker
-
 
 
 ## 使用api调用portainer
