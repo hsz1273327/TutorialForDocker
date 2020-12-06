@@ -24,17 +24,7 @@ Docker是开源软件,目前支持在x86-64指令集和arm指令集下安装和�
     sudo systemctl start docker
     ```
 
-3. 将用户添加进docker组
-
-    ```shell
-    sudo gpasswd -a ${USER} docker
-    ```
-
-    之后重启服务器或者重启docker服务即可
-
-    ```shell
-    sudo service docker restart
-    ```
+ps: 在群晖系统中docker可以通过docker套件安装,重启则必须通过`synoservice --restart pkgctl-Docker`实现
 
 ## 利用Docker Desktop在Windows和Mac OS上安装Docker
 
