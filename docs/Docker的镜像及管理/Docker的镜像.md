@@ -98,7 +98,7 @@ EXPOSE <port>
 
 对于许多服务或程序一个常见的需求就是健康检测了,我们通常写一个服务都会给一个`ping-pong`接口用于检测心跳防止服务起着但是已经不再可用.不用docker的话通常我们是在外部定义一个定时任务隔段时间请求一次来确保可用.而如果是docker的话就可以设置健康检查脚本了(前提是镜像中有对应的工具支持).当然了更加推荐的是在构建镜像时定义健康检查.
 
-> 例1: [为我们的helloworld项目提供健康检测功能](https://github.com/hsz1273327/TutorialForDocker/tree/helloworld-with-healthcheck)
+> 例1: [为我们的helloworld项目提供健康检测功能](https://github.com/hsz1273327/TutorialForDocker/tree/checkimage-build_healthycheck)
 
 + `dockerfile`
 
