@@ -32,8 +32,8 @@ ps: 在群晖系统中docker可以通过docker套件安装,重启则必须通过
 
 需要注意的是:
 
-+ windows必须是win10, 如果你是win10 home版本,那么你只能设置使用wsl2作为docker的执行后端;其他版本则可以使用hyper-v作为docker的执行后端
-+ mac os目前的m1芯片版本并没有被支持,也就是说只有Intel版本的mac可以使用.mac版本的docker desktop使用的后端是HyperKit.
++ windows必须是win10, 如果你是win10 home版本,那么你只能设置使用`wsl2`作为docker的执行后端;其他版本则可以选择使用`hyper-v`作为docker的执行后端,更加推荐使用`wsl2`,`hyper-v`作为后端可能会影响一些其他应用虚拟化技术的工具比如一些安卓模拟器.
++ mac os目前的m1芯片版本并没有被支持,也就是说只有Intel版本的mac可以使用.mac版本的docker desktop使用的后端是`HyperKit`.
 
 ## 配置Docker
 

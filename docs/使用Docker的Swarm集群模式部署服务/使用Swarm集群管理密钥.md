@@ -1,5 +1,4 @@
-
-#### 在docker Swarm环境下配置证书和私钥
+# 使用Swarm集群管理密钥
 
 通常我们在docker中配置ssl不会直接将文件放入镜像,这样挺奇怪的,而是会将其放入docker swarm的`secrets`中.
 

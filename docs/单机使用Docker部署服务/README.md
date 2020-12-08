@@ -18,8 +18,6 @@ docker的runtime就是docker执行容器的运行时,它必须满足一定的规
 
 docker的runtime都是基于`linux`内核的,因此在windows上或者macos上执行docker实际都是使用的虚拟机.这都是通过集成环境`docker desktop`实现的安装.
 
-+ 在mac上`docker desktop`使用的是[hyperkit](https://github.com/moby/hyperkit)作为虚拟环境
-+ 在windows上`docker desktop`是使用的[hyper-v](https://docs.microsoft.com/en-us/virtualization/hyper-v-on-windows/quick-start/enable-hyper-v)作为虚拟环境.因此windows上的`docker desktop`必须在win10除基础版和家庭版以外的系统中才能安装,而且注意,**会和多数国产安卓模拟器应用冲突**.因此如果要在使用docker环境的同时做安卓相关开发测试,那必须使用[android studio](https://developer.android.google.cn/studio/)
 
 ## 本地使用docker的工作流
 
