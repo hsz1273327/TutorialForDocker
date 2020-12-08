@@ -187,7 +187,7 @@ docker build -t hsz1273327/myimage:latest .
 
 如果我们的基镜像是arm版而我们的编译环境为x86-64,那很遗憾我们无法成功编译镜像.但实际上也不是没有办法,我们可以设置开启[buildx](https://docs.docker.com/buildx/working-with-buildx/)特性.注意buildx是一项实验特性(在`docker 19.03`之前都没有),目前并不稳定.但可以用.
 
-本例在[]()
+本例在[example-image-build-buildx](https://github.com/hsz1273327/TutorialForDocker/tree/example-image-build-buildx)
 
 #### 激活跨平台镜像编译功能
 
@@ -268,28 +268,6 @@ docker buildx build --load --platform={指定平台} -t {tag} .
 ```
 
 这是因为本质上我们的编译过程是在docker容器中执行的,宿主机网络的mtu一般是1500,而容器中一般会比这个值略小(1450的样子),我们只有将`mtu`参数设置的至少和容器中的一致tls才不容易出错.1300也是一个经验值.
-
-#### 多平台镜像聚合
-
-docker支持多平台的镜像使用相同的命名,但这需要将各个平台的镜像聚合构造成一份清单(`manifest`),如果docker指定的镜像实际是一份清单,则它会根据当前docker的执行平台来查找符合要求的镜像是否存在,如果存在,则执行,不存在则无法执行.
-
-由于manifest本质上是镜像仓库的特性,所以要创建manifest必须先将原始镜像推送至镜像仓库,这样本地docker才能识别.
-
-```bash
-docker push xxxxx
-```
-
-
-我们可以手动执行`docker manifest`操作,将编译生成的不同平台的镜像手动打包
-
-```bash
-docker manifest create [--amend] {manifest_tag} \
-{platform_tag} \
-{platform_tag} \
-...
-```
-
-如果是本地已经存在`manifest_tag`了我们只是修改它,那么我们需要指定flag`--amend`.它会用新创建的`manifest`替换掉原来的.
 
 ## 本地镜像管理
 
