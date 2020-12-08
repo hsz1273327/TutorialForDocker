@@ -172,9 +172,24 @@ docker build -t hsz1273327/myimage:latest .
 
 它的含义是在当前目录下找`Dockerfile`文件构建一个标签为`hsz1273327/myimage:latest`的镜像.
 
+### 镜像的标签
+
+我们上面说了镜像的标签,docker体系下镜像标签不光是一个简单标签,它是有规范的.
+
+符合规范的标签大致可以分为如下几种形式:
+
++ `dockerhub账号/镜像名:版本`
++ `私有镜像仓库地址/仓库二级目录名/镜像名:版本`
+
+没错,镜像的标签是和镜像分发有关的.需要额外注意的是`版本`,docker镜像中`latest`有特殊地位,它的含义是最新的稳定版本.因此如果拉取镜像时不指定版本那么docker会自动拉取`latest`版本的镜像.
+
 ### 跨指令集编译镜像
 
-如果我们的基镜像是arm版而我们的编译环境为x86-64,那很遗憾我们无法成功编译镜像.但实际上也不是没有办法,我们可以设置开启[buildx](https://docs.docker.com/buildx/working-with-buildx/)特性.注意buildx是一项实验特性,目前并不稳定.但可以用.
+如果我们的基镜像是arm版而我们的编译环境为x86-64,那很遗憾我们无法成功编译镜像.但实际上也不是没有办法,我们可以设置开启[buildx](https://docs.docker.com/buildx/working-with-buildx/)特性.注意buildx是一项实验特性(在`docker 19.03`之前都没有),目前并不稳定.但可以用.
+
+本例在[]()
+
+#### 激活跨平台镜像编译功能
 
 我们需要在docker设置中开启这一特性:
 
@@ -205,38 +220,7 @@ Status:    running
 Platforms: linux/amd64, linux/arm64, linux/riscv64, linux/ppc64le, linux/s390x, linux/386, linux/arm/v7, linux/arm/v6
 ```
 
-一般来说我们会用到的平台也就是`linux/amd64`(一般pc),`linux/arm64`(树莓派3,4的硬件),`linux/arm/v7`(树莓派3,4的默认系统).
-
-如果我们的编译器不是`running`状态可以使用`docker buildx use {编译器名}`来指定激活编译器.
-
-在确保我们的编译器是`running`状态时我们可以执行镜像的编译操作:
-
-```bash
-docker buildx build --platform={指定平台} -t {tag} . [--load|--push]
-```
-
-`docker buildx build`命令类似`docker build`,除此之外还可以使用flag`--push`直接将镜像推送到镜像仓库,而`--load`则会打包到本地.
-
-实测`--push`相当不稳定,经常会`io timeout`.一个比较稳妥的做法是先每个平台单独执行`docker buildx build --load`,注意`-t`中的tag要标明平台,即`xxxx:arm64-0.0.0`这种形式.然后在整体执行一次`docker buildx build --push`.能推送成功最好,不行我们可以手动执行`docker manifest`操作,将编译生成的不同平台的镜像手动打包上传
-
-```bash
-docker manifest create {manifest_tag} \
-{platform_tag} \
-{platform_tag} \
-...
-
-docker manifest push {manifest_tag}
-```
-
-需要注意`docker buildx build`命令可能会在拉取arm镜像的时候报`TLS handshake timeout`错误,可以通过设置docker的配置增大对大文件的支持来缓解:
-
-```json
-{
-  "mtu": 1300
-}
-```
-
-来解决.这是因为本质上我们的编译过程是在docker容器中执行的,宿主机网络的mtu一般是1500,而容器中一般会比这个值略小(1450的样子),我们只有将`mtu`参数设置的至少和容器中的一致tls才不容易出错.1300也是一个经验值.
+一般来说我们会用到的平台也就是`linux/amd64`(一般pc),`linux/arm64`(树莓派4的硬件,需要更新系统未arm64位),`linux/arm/v7`(树莓派3,4的默认系统).
 
 #### dockerfile中的跨平台设置
 
@@ -261,63 +245,44 @@ dockerfile中支持的与跨平台相关的上下文变量有:
 | `BUILDARCH`      | 构建镜像主机平台的架构类型                   | `amd64`,`arm`,`arm64`等                      |
 | `BUILDVARIANT`   | 构建镜像主机平台的架构类型的子类型           | `v7`,`v6`等                                  |
 
-### 镜像的标签
+#### 跨平台编译镜像
 
-我们上面说了镜像的标签,docker体系下镜像标签不光是一个简单标签,它是有规范的.
+如果我们的编译器不是`running`状态可以使用`docker buildx use {编译器名}`来指定激活编译器.
 
-符合规范的标签大致可以分为如下几种形式:
-
-+ `dockerhub账号/镜像名:版本`
-+ `私有镜像仓库地址/仓库二级目录名/镜像名:版本`
-
-没错,镜像的标签是和镜像分发有关的.需要额外注意的是`版本`,docker镜像中`latest`有特殊地位,它的含义是最新的稳定版本.因此如果拉取镜像时不指定版本那么docker会自动拉取`latest`版本的镜像.
-
-### 将镜像上传至镜像仓库
-
-镜像的分发基本上是依靠镜像仓库的,[docker hub](https://hub.docker.com/)是目前最大的docker镜像公有仓库,免费,注册了就可以用.我们也可以自己搭建私有镜像仓库,这个是下一篇文章的内容.
-
-要上传镜像首先需要登录镜像仓库,无论是共有的还是私有的只要有用户验证的步骤就一定需要先登录.
+在确保我们的编译器是`running`状态时我们可以执行镜像的编译操作:
 
 ```bash
-docker login [-p <密码> -u <用户名>] [私有仓库hostname[:私有仓库端口]]
+docker buildx build --load --platform={指定平台} -t {tag} . 
 ```
 
-如果没有在命令中指定用户名和密码,那么这条命令会进入一个命令行的交互界面让你填这些信息.如果没有指定私有仓库信息,那么这会默认登录dockerhub.
+`docker buildx build`命令类似`docker build`,指定flag`--load`会将编译好的镜像打包到本地.
 
-在登录了镜像仓库后我们就可以上传镜像了.上传镜像的命令形式如下:
+注意`-t`中的tag要标明平台,即`xxxx:arm64-0.0.0`这种形式,以防止镜像覆盖.
 
-```bash
-docker push dockerhub账号/镜像名[:版本]
-```
-
-或者
-
-```bash
-docker push 私有镜像仓库地址/仓库二级目录名/镜像名[:版本]
-```
-
-我们可以指定版本上传也可以不指定,如果不指定,那么将会将每个本地存在的版本的镜像都上传了.
-
-### 镜像拉取和docker hub
-
-除了在`docker-compose.yml`执行时拉取镜像外,我们也可以通过命令`docker pull <镜像标签>`来直接拉取镜像,拉取的镜像会保存在本地.
-
-我们多数时候需要的镜像都是来自于dockerhub,但docker hub毫无疑问的部署在墙外,因此在墙内的我们需要设置镜像站,好在官方(`https://registry.docker-cn.com`),网易(`https://hub-mirror.c.163.com`),和科大(`https://docker.mirrors.ustc.edu.cn/`)都提供了镜像站.
-
-配置方法是修改配置文件中的`registry-mirrors`项:
+需要注意`docker buildx build`命令可能会在拉取镜像的时候报`TLS handshake timeout`错误,可以通过设置docker的配置增大对大文件的支持来缓解:
 
 ```json
 {
-  ...
-  "registry-mirrors": [
-    "https://registry.docker-cn.com",
-    "https://hub-mirror.c.163.com",
-    "https://docker.mirrors.ustc.edu.cn/"
-  ],
-  ...
+  "mtu": 1300
 }
-
 ```
+
+这是因为本质上我们的编译过程是在docker容器中执行的,宿主机网络的mtu一般是1500,而容器中一般会比这个值略小(1450的样子),我们只有将`mtu`参数设置的至少和容器中的一致tls才不容易出错.1300也是一个经验值.
+
+#### 多平台镜像聚合
+
+docker支持多平台的镜像使用相同的命名,但这需要将各个平台的镜像聚合构造成一份清单(`manifest`),如果docker指定的镜像实际是一份清单,则它会根据当前docker的执行平台来查找符合要求的镜像是否存在,如果存在,则执行,不存在则无法执行.
+
+我们可以手动执行`docker manifest`操作,将编译生成的不同平台的镜像手动打包
+
+```bash
+docker manifest create [--amend] {manifest_tag} \
+{platform_tag} \
+{platform_tag} \
+...
+```
+
+如果是本地已经存在`manifest_tag`了我们只是修改它,那么我们需要指定flag`--amend`.它会用新创建的`manifest`替换掉原来的.
 
 ## 本地镜像管理
 
