@@ -1,0 +1,1 @@
+docker build -t python_docker_example:helloworld .

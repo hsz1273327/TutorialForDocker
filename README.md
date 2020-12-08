@@ -1,3 +1,8 @@
-# TutorialForDocker的例子分支
+# helloworld
 
-这个分支将全部都是例子,例子会按章节分叉,每个章节一个单独的分叉,然后不同的例子会放在不同的tag中.
+docker介绍文章的演示例子.使用步骤:
+
+1. 执行`bash build_image.sh`构造镜像
+2. 执行`bash run_container.sh`使用镜像执行容器
+
+这样打开浏览器`http://localhost:5000`就可以看到helloworld字样
