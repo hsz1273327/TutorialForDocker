@@ -1,2 +1,3 @@
-# TutorialForDocker
-介绍Docker的用法
+# TutorialForDocker的例子分支
+
+这个分支将全部都是例子,例子会按章节分叉,每个章节一个单独的分叉,然后不同的例子会放在不同的tag中.
