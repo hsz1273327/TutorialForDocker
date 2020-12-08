@@ -110,9 +110,11 @@ WORKDIR /code
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 ADD app.py /code/app.py
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD [ "curl","http://localhost:5000/ping" ]
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD [ "curl","-f","http://localhost:5000/ping" ]
 CMD [ "python" ,"app.py"]
 ```
+
+使用`docker ps`如果在容器的`STATUS`信息中看到有`health`字样,表明健康检查被激活了.
 
 ### CMD和ENTRYPOINT
 
