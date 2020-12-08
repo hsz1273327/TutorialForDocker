@@ -1,3 +1,10 @@
-# TutorialForDocker的例子分支
+# 健康检测
 
-这个分支将全部都是例子,例子会按章节分叉,每个章节一个单独的分叉,然后不同的例子会放在不同的tag中.
+这是演示在构造镜像时设置健康检查的例子.
+
++ 执行`bash build_image.sh`构造镜像
++ 执行`bash run_container.sh`使用镜像执行容器
+
+这样打开浏览器http://localhost:5000就可以看到helloworld字样.
+
+使用`docker ps`可以在展示的`STATUS`信息中看到有`health: starting`字样,标明健康检查被激活了.
