@@ -1,1 +1,1 @@
-docker run -d -p 5000:5000 hsz1273327/hellodocker:0.0.0-amd64
+docker run -d -p 5000:5000 hsz1273327/hellodocker:0.0.0
