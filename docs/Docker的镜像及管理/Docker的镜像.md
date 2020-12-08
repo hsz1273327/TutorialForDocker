@@ -273,6 +273,13 @@ docker buildx build --load --platform={指定平台} -t {tag} .
 
 docker支持多平台的镜像使用相同的命名,但这需要将各个平台的镜像聚合构造成一份清单(`manifest`),如果docker指定的镜像实际是一份清单,则它会根据当前docker的执行平台来查找符合要求的镜像是否存在,如果存在,则执行,不存在则无法执行.
 
+由于manifest本质上是镜像仓库的特性,所以要创建manifest必须先将原始镜像推送至镜像仓库,这样本地docker才能识别.
+
+```bash
+docker push xxxxx
+```
+
+
 我们可以手动执行`docker manifest`操作,将编译生成的不同平台的镜像手动打包
 
 ```bash
