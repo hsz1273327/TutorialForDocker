@@ -1,4 +1,4 @@
-FROM python:3.8
+FROM --platform=$TARGETPLATFORM python:3.8
 ADD requirements.txt /code/requirements.txt
 ADD pip.conf /etc/pip.conf
 WORKDIR /code
