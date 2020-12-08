@@ -6,4 +6,3 @@
 + 执行`bash run_container.sh`使用镜像执行容器
 
 这样打开浏览器http://localhost:5000就可以看到helloworld字样.
-
