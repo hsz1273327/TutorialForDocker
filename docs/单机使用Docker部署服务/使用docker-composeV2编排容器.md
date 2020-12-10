@@ -31,7 +31,7 @@ sudo rm /usr/local/bin/docker-compose
 
 + `v3`版本主要多出了`deploly`字段用于更加细化的定义`swarm`集群部署上的行为,因此`swarm`集群上部署服务都会用它.
 
-本章节介绍单机使用Docker.因此我会以`v2.4`版本为基础介绍`docker-compose`语法.本文只是一个引子,介绍基本语法和使用,一些部署和资源上的设置我们将在后面单独介绍.
+本章节介绍单机使用Docker.因此我会以`v2.4`版本为基础介绍`docker-compose`语法,下一章节介绍Swarm集群时我们会引入`v3`版本.本文只是一个引子,介绍基本语法和使用,一些部署和资源上的设置我们将在后面单独介绍.
 
 一个典型的`docker-compose`配置文件使用[yaml格式](https://baike.baidu.com/item/YAML/1067697?fr=aladdin)定义.通常一个项目下会有一个`docker-compose.yml`文件,它就是这个项目的部署配置文件.一个典型的`docker-compose`配置文件如下:
 
@@ -42,17 +42,20 @@ services:
     build: ./dir
 ```
 
-可以看到基本结构有3层,当然复杂的可能也有4层.
+可以看到基本结构有3层,当然复杂的可能也有4层5层.
 
-第一层包括`version`,`services`等,这一层一般是声明使用的语法版本,定义的服务,网络等内容;第二层通常就是具体各项的定义了,比如上面例子中`webapp`就是一个具体的服务的定义;第三层则是具体到各个项的配置,比如上面例子上`build`就是定义`webapp`这个服务的镜像编译行为.
+第一层包括`version`,`services`等,这一层一般是声明使用的语法版本,定义的服务,网络等内容以及一些通用设置;第二层通常就是具体各项的定义了,比如上面例子中`webapp`就是一个具体的服务的定义;第三层则是具体到各个项的配置,比如上面例子上`build`就是定义`webapp`这个服务的镜像编译行为.
 
-docker-compose的语法详细的还是因该去看[官方文档](https://docs.docker.com/compose/compose-file/).下面介绍的是在单机环境下常用的配置项.
+docker-compose的语法详细的还是因该去看[官方文档](https://docs.docker.com/compose/compose-file/).
 
-## docker-compose语法版本
+## 部署服务的基本工作流
 
+单机模式下使用`docker-compose`部署服务的基本工作流是
 
+1. 定义一个`docker-compose.yml`文件用于描述服务的编排.
+2. 使用命令`docker-compose up`部署服务.
 
-## 服务配置
+## 使用`docker-compose.yml`编排服务
 
 `services`是服务配置的声明层,它可以允许配置多个不同的服务,这里也是`docker-compose`的主要配置部分.`services`下的每一个key对应的是一个服务的名字,同一个stack下不可以有重名的服务.
 
@@ -102,7 +105,11 @@ build: ./dir
 ...
 ```
 
-### 服务间的依赖顺序
+## 重复的配置部分单独声明
+
+
+
+### 编排服务间的依赖顺序
 
 上面的例子中我们起了两个服务,这两个服务实际上是有依赖关系的--`webapp`依赖`redis`.但上面的配置中实际上是忽视这种依赖关系的.
 实际上为了确保可用,应该先启动`redis`,`redis`ready了再启动`webapp`,同时如果要删除这个task应该先删除`webapp`再删除`redis`,这种依赖关系我们可以使用字段`depends_on`来进行约束.
@@ -126,10 +133,6 @@ version: "2.4"
      depends_on:
       - redis
 ```
-
-## 重复的配置部分单独声明
-
-
 
 ## 使用`docker-compose`命令行工具部署stack
 
