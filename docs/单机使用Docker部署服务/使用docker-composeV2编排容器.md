@@ -57,9 +57,46 @@ docker-compose的语法详细的还是因该去看[官方文档](https://docs.do
 
 ## 使用`docker-compose.yml`编排服务
 
-`services`是服务配置的声明层,它可以允许配置多个不同的服务,这里也是`docker-compose`的主要配置部分.`services`下的每一个key对应的是一个服务的名字,同一个stack下不可以有重名的服务.
+在`docker-compose`编排声明中最核心的是`services`字段,也就是服务配置的声明层.它可以允许配置多个不同的服务的基本信息和部署行为.`services`下的每一个key对应的是一个服务的名字,同一个`project`下不可以有重名的服务.
 
-### 指定镜像
+在单机模式下每个`service`对应一个容器.
+
+本文的例子在[example-standalone-deploy](https://github.com/hsz1273327/TutorialForDocker/tree/example-standalone-deploy)
+
+这个例子我们沿用之前`hellodocker`项目的代码依然是做一个http服务器.对这个镜像的扩展我们会贯穿整个单机部分,借助其不断的扩展来演示单机环境下的对docker的各种需求.本例中我们介绍如果使用`docker-compose`编排部署一个`project`.
+
+这次我们为其添加对环境变量的读取支持:
+
+```python
+REDIS_URL = os.getenv("HELLO_DOCKER_REDIS_URL") or "redis://host.docker.internal?db=0"
+HOST = os.getenv("HELLO_DOCKER_HOST") or "0.0.0.0"
+if port := os.getenv("HELLO_DOCKER_PORT"):
+    PORT = int(port)
+else:
+    PORT = 5000
+
+...
+
+client = StrictRedis.from_url(REDIS_URL, decode_responses=True)
+```
+
+以及两个接口用于读取和设置redis中key`foo`的值,以此来确定组件间的依赖关系.
+
+```python
+@app.get("/foo")
+async def getfoo(_: Request) -> HTTPResponse:
+    value = await client.get('foo')
+    return json({"result": value})
+
+
+@app.get("/set_foo")
+async def setfoo(request: Request) -> HTTPResponse:
+    value = request.args.get("value", "")
+    await client.set('foo', value)
+    return json({"result": "ok"})
+```
+
+### 指定service使用的镜像
 
 指定镜像一般有两种方式:
 
@@ -105,57 +142,178 @@ build: ./dir
 ...
 ```
 
-## 重复的配置部分单独声明
+## 重复的配置部分使用锚点单独声明
 
+YAML格式允许使用锚点预先定义好内容,然后再在别处引用锚点用于复用配置.这一点也可以用在`docker-compose`上用来降低配置的代码量.
 
+例子中我们展示了批量配置docker的log行为的方法:
+
+```yaml
+...
+x-log: &default-log
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  db-redis:
+    ...
+    logging:
+      <<: *default-log
+    ...
+
+  hellodocker:
+    ...
+    logging:
+      <<: *default-log
+    ...
+
+```
+
+我们只需要写一次log设置,就可以在每个service中引用.我想也是因为yaml格式这项语法`docker-compose`才会选它而不是json来作为配置文件格式.
+
+### 为service打标签
+
+我们可以利用`labels`为服务打标签:
+
+```yaml
+services:
+  ...
+  hellodocker:
+    ...
+    labels:
+      - "hsz.hsz.image=hellodocker"
+      - "hsz.hsz.desc=hello docker with get/set foo in redis"
+    ...
+```
+
+docker体系下标签都是键值对形式的,用`labels`字段就可以将标签添加进service的元数据中.
+因此我们使用命令`docker ps --filter "label=hsz.hsz.image=hellodocker"`就可以将这个服务过滤出来.
+
+同样的第三方扩展也就可以利用这一特性查找服务.比如用[cAdvisor](https://github.com/google/cadvisor)做监控,用[log-pilot](https://github.com/AliyunContainerService/log-pilot)做log收集等.
+
+### 使用`environment`设置容器中的环境变量
+
+我们可以利用`environment`字段设置容器中的环境变量,
+
+```yaml
+services:
+  ...
+  hellodocker:
+    ...
+    environment:
+      HELLO_DOCKER_REDIS_URL: redis://db-redis?db=0
+      HELLO_DOCKER_HOST: 0.0.0.0
+      HELLO_DOCKER_PORT: 3000
+    ...
+```
+
+在容器中环境变量的来源有两个:
+
+1. 构造镜像时使用`ENV`字段引入的环境变量
+2. 执行镜像时使用`docker run`命令的`-e`或者在`docker-compse`中的`environment`字段中定义的环境变量.
+
+第二种会覆盖第一种.
+
+通常来说docker鼓励从环境变量中读取数据作为启动配置这种方式.
+
+### 设置服务的健康检查
+
+一些情况下我们需要重写镜像中的健康检查以符合我们执行时设定过的参数.比如本例中由于我们修改了端口,之前在dockerfile中定义好的健康检查肯定无法使用了.这时候我们就可以在compse file中定义`healthcheck`字段来覆盖镜像中定义的健康检查项目.
+
+```yml
+services:
+  ...
+  hellodocker:
+    ...
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/ping"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    ...
+```
+
+`test`字段定义检查的命令,注意命令必须是固定的格式,这个格式由列表的第一个元素确定:
+
++ 如果`test`后面的值为字符串,则这个字符串就是要执行的命令,如`"curl -f http://localhost:3000/ping || exit 1"`
++ 如果`test`后面的值为列表且以元素`"CMD"`开头,则如上面例子
++ 如果`test`后面的值为列表且以元素`"CMD-SHELL"`开头,则只有两个元素,如:`["CMD-SHELL", "curl -f http://localhost:3000/ping || exit 1"]`
+
+其他字段就和dockerfile中定义的类似了.
+
+如果我们使用的镜像有设定健康检查但我们希望容器不要进行健康检查,那么可以将其强制设为关闭
+
+```yml
+services:
+  ...
+  hellodocker:
+    ...
+    healthcheck:
+      disable: true
+    ...
+```
 
 ### 编排服务间的依赖顺序
 
 上面的例子中我们起了两个服务,这两个服务实际上是有依赖关系的--`webapp`依赖`redis`.但上面的配置中实际上是忽视这种依赖关系的.
-实际上为了确保可用,应该先启动`redis`,`redis`ready了再启动`webapp`,同时如果要删除这个task应该先删除`webapp`再删除`redis`,这种依赖关系我们可以使用字段`depends_on`来进行约束.
+实际上为了确保可用,应该先启动`redis`,`redis`ready了再启动`webapp`,同时如果要删除这个task应该先删除`webapp`再删除`db-redis`,这种依赖关系我们可以使用字段`depends_on`来进行约束.
 
 其语法如:
 
 ```yml
-depends_on:
-  - a
-  - b
+services:
   ...
+  hellodocker:
+    ...
+    depends_on:
+      - db-redis
+    ...
 ```
 
-> 例5:[修改例4,约束依赖关系](https://github.com/hsz1273327/TutorialForDocker/tree/helloworld-with-redis-depends_on)
+上面各个部分设置好后,我们可以得到如下的compose file:
 
 ```yml
 version: "2.4"
-  ...
-    webapp:
-     ...
-     depends_on:
-      - redis
+
+x-log: &default-log
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db-redis:
+    image: redis
+    logging:
+      <<: *default-log
+
+  hellodocker:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: hsz1273327/hellodocker:0.0.1
+    environment:
+      HELLO_DOCKER_REDIS_URL: redis://db-redis?db=0
+      HELLO_DOCKER_HOST: 0.0.0.0
+      HELLO_DOCKER_PORT: 3000
+    labels:
+      - "hsz.hsz.image=hellodocker"
+      - "hsz.hsz.desc=hello docker with get/set foo in redis"
+    depends_on:
+      - db-redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/ping"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      <<: *default-log
+
 ```
 
-## 使用`docker-compose`命令行工具部署stack
-
-上面的部分我们已经介绍了单机部署的基本配置,后续的网络配置,编排配置,存储配置,包括swarm集群配置都是在这部分之上的扩展,接下来我们完整应用下上面的内容来实战下容器部署.
-
-> 例子1: [部署nginx](https://github.com/hsz1273327/TutorialForDocker/tree/example-nginx)
-
-+ `docker-compose.yml`
-
-  ```yml
-  version: "2.4"
-  services:
-    http_static:
-      image: nginx:latest
-      logging:
-        driver: "json-file"
-        options:
-          max-size: "200k"
-          max-file: "10"
-      cpus: 1.0
-      mem_limit: 30m
-      restart: on-failure
-  ```
+## 使用`docker-compose`命令行工具部署`project`
 
 接下来我们要部署这个配置,很简单,就是使用命令`docker-compose up`即可.
 
@@ -164,13 +322,54 @@ version: "2.4"
 
 比较常用的命令是:
 
-命令|功能说明|可选参数
----|---|---
-`docker-compose up`|启动`docker-compose.yml`对应的stack|`-d`用于后台执行,`--build`用于重新编译镜像
-`docker-compose down`|停掉`docker-compose.yml`对应的stack中的所有容器,并删除整个stack|`--rmi`同时删除其中用到的镜像
+| 命令                  | 功能说明                                                                | 可选参数                                      |
+| --------------------- | ----------------------------------------------------------------------- | --------------------------------------------- |
+| `docker-compose up`   | 启动`docker-compose.yml`对应的`project`                                 | `-d`用于后台执行,`--build`用于重新编译镜像,`` |
+| `docker-compose down` | 停掉`docker-compose.yml`对应的`project`中的所有容器,并删除整个`project` | `--rmi`同时删除其中用到的镜像                 |
 
-`docker-compose`会找到当前文件夹下的`docker-compose.yml`文件,解析并部署容器,stack的名字就是当前的文件夹名.
+`docker-compose`会找到当前文件夹下的`docker-compose.yml`文件,解析并部署容器,`project`的名字就是当前的文件夹名.
 
-如果需要指定`docker-compose.yml`文件,比如一个项目会部署在多个环境,不同的环境使用不同的`docker-compose.yml`文件,那可以通过`-f`指定配置文件.
+如果需要指定`docker-compose.yml`文件,比如一个项目会部署在多个环境,不同的环境使用不同的`docker-compose.yml`文件,那可以通过`-f`指定配置文件.同时我们也可以使用`-p`为`project`指定名字,如果不指定则默认为执行命令时的文件夹名.
+
+不过要注意,这个`-f`和`-p`是`docker-compose`的参数,不是`docker-compose up`的参数,因此需要在`up`之前写好
+
+## 管理容器
+
+单机条件下管理容器可以分为:
+
++ 使用`docker-compose`命令粗颗粒度的批量管理project中的容器.
+
+| 命令                | 常用额外参数                                                                        | 说明                                       |
+| ------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------ |
+| `docker-compose up` | `-d`后台执行</br>`--build`强制重build镜像</br>`--force-recreate`强制重新创建project | 如果project未创建则创建,创建了则更新后重启 |
+
+ `docker-compose images` |---|列出用到的镜像
+  `port`|---|列出项目开放的端口
+  `logs`|---|查看容器的输出
+  `pause`|---|暂停项目的服务              Pause services
+`ps`|---|查看项目下的容器列表
+
+  `restart`|---|重启项目下的容器
+  `rm`|---|删除停止了的容器     
+
+  `scale`|伸缩服务的个数
+  start              Start services
+  stop               Stop services
+  top                Display the running processes
+
++ 使用细颗粒度的管理特定容器两种.相关的操作主要使用`docker`命令.大致可以总结为如下:
+
+| 命令                                               | 常用额外参数                                                                                                                                                                | 说明                             |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `docker run [options]{imagesname}[:tag]`           | `--restart={flag}`:设定镜像重启等级</br>`--name {name}`:为镜像取个名</br>`-d`:守护进程启动 </br>`-t -i`:启动shell允许输入</br>`-p`:设定host和端口</br>`-v`:设定宿主机挂载卷 | 由镜像创建容器                   |
+| `docker ps [option]`                               | 查看当前运行的镜像列表</br>`-a`:全部镜像</br>`-l`:最近启动的镜像                                                                                                            | 查看定义了的容器                 |
+| `docker inspect {name|cid}`                        | ---                                                                                                                                                                         | 查看单个容器属性                 |
+| `docker exec [option] {name|cid} COMMAND [ARG...]` | `-i`:保持`stdin`打开</br>`-t`:分配一个tty</br>                                                                                                                              | 在运行中的指定容器中执行命令     |
+| `docker logs [option] {name|cid}`                  | `--tail {n}`:查看末尾的n行                                                                                                                                                  | 查看容器的log信息                |
+| `docker start {name|cid}`                          | ---                                                                                                                                                                         | 启动容器                         |
+| `docker restart {name|cid}`                        | ---                                                                                                                                                                         | 重启镜像                         |
+| `docker attach {name|cid}`                         | ---                                                                                                                                                                         | 附着到正在运行中的容器上实现会话 |
+| `docker stop {name|cid}`                           | ---                                                                                                                                                                         | 停止镜像                         |
 
 
+除此之外我们也可以使用第三方工具[ctop]()来更方便的查看运行中的容器状态

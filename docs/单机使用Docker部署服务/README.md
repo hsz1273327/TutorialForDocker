@@ -7,7 +7,7 @@ docker并不一定非要自己构建镜像,很多时候docker生态是作为一�
 docker单机容器部署的逻辑结构有2层,即
 
 1. `container`容器,用于实际部署镜像执行任务
-2. `stack`堆,用于描述一组互不相同的`container`的集合,比较接近命名空间的概念,只是在同一个stack下会有一些默认设置可以方便容器相互识别
+2. `project`项目,用于描述一组互不相同的`container`的集合,比较接近命名空间的概念,只是在同一个项目下会有一些默认设置可以方便容器相互识别
 
 这个模型基本上已经可以将常见的业务形态都包含进去了.
 
@@ -67,7 +67,7 @@ OCI对容器runtime的标准主要是根据`runc`实现来定义的,它规范了
 
 单机部署docker容器的工作流有两种:
 
-1. 使用`docker run`命令直接部署镜像
-2. 使用`docker-compose`命令部署由`docker-compose.yml`编排的stack
+1. 使用`docker run`命令直接部署容器
+2. 使用`docker-compose`命令部署由`docker-compose.yml`编排的项目
 
 由于第一种方式难以维护本文只介绍第二种方式.
