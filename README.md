@@ -1,3 +1,8 @@
-# TutorialForDocker的例子分支
+# 单机容器编排
 
-这个分支将全部都是例子,例子会按章节分叉,每个章节一个单独的分叉,然后不同的例子会放在不同的tag中.
+docker单机环境部署的例子.
+
+使用步骤:
+
+1. 执行`docker-compose up --build -d`构造镜像并执行编排好的服务stack.这样执行`docker logs tutorialfordocker_hellodocker_1`就可以看到服务的log了
+2. 执行`docker-compose down`关闭删除服务stack.,如果要删除镜像,加上参数`--rmi`

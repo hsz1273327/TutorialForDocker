@@ -1,0 +1,35 @@
+version: "2.4"
+
+x-log: &default-log
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db-redis:
+    image: redis
+    logging:
+      <<: *default-log
+
+  hellodocker:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: hsz1273327/hellodocker:0.0.1
+    environment:
+      HELLO_DOCKER_REDIS_URL: redis://db-redis?db=0
+      HELLO_DOCKER_HOST: 0.0.0.0
+      HELLO_DOCKER_PORT: 3000
+    labels:
+      - "hsz.hsz.image=hellodocker"
+      - "hsz.hsz.desc=hello docker with get/set foo in redis"
+    depends_on:
+      - db-redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/ping"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      <<: *default-log
