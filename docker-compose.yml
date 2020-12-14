@@ -23,6 +23,7 @@ services:
     labels:
       - "hsz.hsz.image=hellodocker"
       - "hsz.hsz.desc=hello docker with get/set foo in redis"
+    scale: 2
     depends_on:
       - db-redis
     healthcheck:
