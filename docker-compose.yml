@@ -23,7 +23,7 @@ services:
     labels:
       - "hsz.hsz.image=hellodocker"
       - "hsz.hsz.desc=hello docker with get/set foo in redis"
-    command: ["python" ,"app.py"]
+    command: ["python", "app.py"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/ping"]
       interval: 1m30s
@@ -36,6 +36,8 @@ services:
     restart: on-failure
     scale: 2
     depends_on:
-      - db-redis
+      db-redis:
+        condition: service_started
     logging:
       <<: *default-log
+
