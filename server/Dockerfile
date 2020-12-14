@@ -1,5 +1,6 @@
 FROM python:3.8
 ADD requirements.txt /code/requirements.txt
+ADD wait-for-it.sh /code/wait-for-it.sh
 ADD pip.conf /etc/pip.conf
 WORKDIR /code
 RUN pip install --upgrade pip

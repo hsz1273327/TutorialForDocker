@@ -23,7 +23,7 @@ services:
     labels:
       - "hsz.hsz.image=hellodocker"
       - "hsz.hsz.desc=hello docker with get/set foo in redis"
-    command: ["python", "app.py"]
+    command: ["./wait-for-it.sh", "db-redis:6379", "--", "python", "app.py"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/ping"]
       interval: 1m30s
