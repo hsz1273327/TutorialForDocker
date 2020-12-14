@@ -142,55 +142,6 @@ build: ./dir
 ...
 ```
 
-### 设置容器中程序的启动命令
-
-在指定好镜像后,如果镜像本身已经定义了`CMD`或者`ENTERYPOINT`那么容器就已经可以启动了.但很多时候我们需要指定部署的一些行为.
-如果我们不想用镜像中指定的启动方式,我们可以在字段`command`中定义容器中程序的启动行为.其形式如下:
-
-```yml
-command: python3 manage.py runserver 0.0.0.0:8000
-```
-
-或者
-
-```yml
-command: ["python3","manage.py","runserver","0.0.0.0:8000"]
-```
-
-如果要执行多行,则可以这样写:
-
-```yml
-command:
-    - sh
-    - -c 
-    - |
-        cmd1
-        cmd2
-        cmd3
-```
-
-
-
-### 为service打标签
-
-我们可以利用`labels`为服务打标签:
-
-```yaml
-services:
-  ...
-  hellodocker:
-    ...
-    labels:
-      - "hsz.hsz.image=hellodocker"
-      - "hsz.hsz.desc=hello docker with get/set foo in redis"
-    ...
-```
-
-docker体系下标签都是键值对形式的,用`labels`字段就可以将标签添加进service的元数据中.
-因此我们使用命令`docker ps --filter "label=hsz.hsz.image=hellodocker"`就可以将这个服务过滤出来.
-
-同样的第三方扩展也就可以利用这一特性查找服务.比如用[cAdvisor](https://github.com/google/cadvisor)做监控,用[log-pilot](https://github.com/AliyunContainerService/log-pilot)做log收集等.
-
 ### 使用`environment`设置容器中的环境变量
 
 我们可以利用`environment`字段设置容器中的环境变量,
@@ -215,6 +166,53 @@ services:
 第二种会覆盖第一种.
 
 通常来说docker鼓励从环境变量中读取数据作为启动配置这种方式.
+
+### 设置容器中程序的启动命令
+
+在指定好镜像后,如果镜像本身已经定义了`CMD`或者`ENTERYPOINT`那么容器就已经可以启动了.但很多时候我们需要指定部署的一些行为.
+如果我们不想用镜像中指定的启动方式,我们可以在字段`command`中定义容器中程序的启动行为.其形式如下:
+
+```yml
+command: python app.py
+```
+
+或者
+
+```yml
+command: ["python" ,"app.py"]
+```
+
+如果要执行多行,则可以这样写:
+
+```yml
+command:
+    - sh
+    - -c 
+    - |
+        cmd1
+        cmd2
+        cmd3
+```
+
+### 为service打标签
+
+我们可以利用`labels`为服务打标签:
+
+```yaml
+services:
+  ...
+  hellodocker:
+    ...
+    labels:
+      - "hsz.hsz.image=hellodocker"
+      - "hsz.hsz.desc=hello docker with get/set foo in redis"
+    ...
+```
+
+docker体系下标签都是键值对形式的,用`labels`字段就可以将标签添加进service的元数据中.
+因此我们使用命令`docker ps --filter "label=hsz.hsz.image=hellodocker"`就可以将这个服务过滤出来.
+
+同样的第三方扩展也就可以利用这一特性查找服务.比如用[cAdvisor](https://github.com/google/cadvisor)做监控,用[log-pilot](https://github.com/AliyunContainerService/log-pilot)做log收集等.
 
 ### 设置服务的健康检查
 
@@ -253,8 +251,6 @@ services:
       disable: true
     ...
 ```
-
-
 
 #### 设置容器的资源限制
 
@@ -327,6 +323,36 @@ services:
 
 如果启动后需要修改容器数量,也可以使用`docker-compose up --scale [服务名=需要的数量]`来修改.
 
+## 重复的配置部分使用锚点单独声明
+
+YAML格式允许使用锚点预先定义好内容,然后再在别处引用锚点用于复用配置.这一点也可以用在`docker-compose`上用来降低配置的代码量.
+
+例子中我们展示了批量配置docker的log行为的方法:
+
+```yaml
+...
+x-log: &default-log
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  db-redis:
+    ...
+    logging:
+      <<: *default-log
+    ...
+
+  hellodocker:
+    ...
+    logging:
+      <<: *default-log
+    ...
+
+```
+
+我们只需要写一次log设置,就可以在每个service中引用.我想也是因为yaml格式这项语法`docker-compose`才会选它而不是json来作为配置文件格式.
+
 ### 编排服务间的依赖顺序
 
 上面的例子中我们起了两个服务,这两个服务实际上是有依赖关系的--`webapp`依赖`redis`.但上面的配置中实际上是忽视这种依赖关系的.
@@ -372,48 +398,24 @@ services:
     labels:
       - "hsz.hsz.image=hellodocker"
       - "hsz.hsz.desc=hello docker with get/set foo in redis"
-    depends_on:
-      - db-redis
+    command: ["python" ,"app.py"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/ping"]
       interval: 1m30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    cpus: 0.8
+    mem_limit: 100m
+    memswap_limit: 200m
+    restart: on-failure
+    scale: 2
+    depends_on:
+      - db-redis
     logging:
       <<: *default-log
 
 ```
-
-## 重复的配置部分使用锚点单独声明
-
-YAML格式允许使用锚点预先定义好内容,然后再在别处引用锚点用于复用配置.这一点也可以用在`docker-compose`上用来降低配置的代码量.
-
-例子中我们展示了批量配置docker的log行为的方法:
-
-```yaml
-...
-x-log: &default-log
-    options:
-      max-size: "10m"
-      max-file: "3"
-
-services:
-  db-redis:
-    ...
-    logging:
-      <<: *default-log
-    ...
-
-  hellodocker:
-    ...
-    logging:
-      <<: *default-log
-    ...
-
-```
-
-我们只需要写一次log设置,就可以在每个service中引用.我想也是因为yaml格式这项语法`docker-compose`才会选它而不是json来作为配置文件格式.
 
 ## 使用`docker-compose`命令行工具部署服务栈
 
