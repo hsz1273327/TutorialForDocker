@@ -385,14 +385,25 @@ services:
 
 一般来说程序是有启动时间的,`service_healthy`相对会比`service_started`更加准确一些,但如果服务没有定义健康检查或者健康检查因为设置不合理而长期未通过,那么可能就会等待相当长的时间.因此另一种方式是借助脚本比如[wait-for-it](https://github.com/vishnubob/wait-for-it)在容器中检验端口是否已经可以访问.
 
-```yml
-services:
++ `dockerfile`
+
+  ```dockerfile
   ...
-  hellodocker:
+  RUN wget https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh -O /code/wait-for-it.sh
+  RUN chmod +x /code/wait-for-it.sh
+  ...
+  ```
+
++ `docker-compose.yml`
+
+  ```yml
+  services:
     ...
-    command: ["./wait-for-it.sh", "db-redis:6379", "--", "python", "app.py"]
-    ...
-```
+    hellodocker:
+      ...
+      command: ["./wait-for-it.sh", "db-redis:6379", "--", "python", "app.py"]
+      ...
+  ```
 
 上面各个部分设置好后,我们可以得到如下的compose file:
 
