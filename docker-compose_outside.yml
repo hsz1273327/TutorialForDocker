@@ -21,7 +21,7 @@ services:
       dockerfile: Dockerfile
     image: hsz1273327/hellodocker:0.0.1
     environment:
-      HELLO_DOCKER_REDIS_URL: redis://outside_redis?db=0 #redis://db-redis?db=0
+      HELLO_DOCKER_REDIS_URL: redis://db-redis?db=0
       HELLO_DOCKER_HOST: 0.0.0.0
       HELLO_DOCKER_PORT: 3000
     labels:
@@ -46,7 +46,6 @@ services:
       <<: *default-log
     networks:
       - test_bridge
-      - attached_bridge_net
 
   balancer:
     build:
@@ -64,5 +63,3 @@ services:
 
 networks:
   test_bridge:
-  attached_bridge_net:
-    external: true

@@ -1,0 +1,1 @@
+docker run -d --name=outside_redis --network=attached_bridge_net redis
