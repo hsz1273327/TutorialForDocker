@@ -16,6 +16,8 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
+      extra_hosts:
+        - "raw.githubusercontent.com:199.232.68.133"
     image: hsz1273327/hellodocker:0.0.1
     environment:
       HELLO_DOCKER_REDIS_URL: redis://localhost?db=0 #redis://db-redis?db=0

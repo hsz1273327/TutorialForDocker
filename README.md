@@ -2,6 +2,8 @@
 
 docker单机环境部署的例子.
 
+新增`build`下`extra_hosts`解决github域名污染问题
+
 使用步骤:
 
 **注意这个例子只能在linux下执行**
