@@ -10,7 +10,10 @@ services:
     image: redis
     logging:
       <<: *default-log
-    network_mode: "host"
+    
+    volumes:
+      - ""
+
 
   hellodocker:
     build:
@@ -40,6 +43,6 @@ services:
         condition: service_started
     logging:
       <<: *default-log
-    network_mode: "host"
-
+    ports:
+      - "3000:3000"
  
