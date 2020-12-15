@@ -1,9 +1,9 @@
 FROM python:3.8
 ADD requirements.txt /code/requirements.txt
-ADD wget https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh -o /code/wait-for-it.sh
+RUN wget https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh -O /code/wait-for-it.sh
+RUN chmod +x /code/wait-for-it.sh
 ADD pip.conf /etc/pip.conf
 WORKDIR /code
-RUN chmod +x wait-for-it.sh
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 ADD app.py /code/app.py
