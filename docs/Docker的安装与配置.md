@@ -229,7 +229,41 @@ Docker最简单的远程调用方式是启动网络api,我们知道`docker`和`d
 }
 ```
 
+这种情况下我们也要修改下`systemctl`的docker启动配置`/lib/systemd/system/docker.service`,将其中的`Service->ExecStart`修改为如下形式:
+
+```conf
+....
+[Service]
+...
+ExecStart=
+ExecStart=/usr/bin/dockerd
+...
+```
+
+之后执行配置重载和重启docker
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
 这样宿主机tcp协议的2376端口就会监听来自外部的请求了
+
+### 启用tls验证tcp连接
+
+在我们配置好服务的私钥和证书以及ca的证书后,修改配置:
+
+```json
+{
+    "tls": true,
+    "tlscacert": "你的ca证书路径",
+    "tlscert":  "你的服务证书路径",
+    "tlskey":  "你的服务私钥路径",
+    "tlsverify": true
+}
+```
+
+同时注意这种情况下我们就不应该使用`0.0.0.0`作为tcp的hostname了,而应该改用宿主机ip或域名
 
 ### 使用网络api
 
@@ -256,3 +290,4 @@ Docker最简单的远程调用方式是启动网络api,我们知道`docker`和`d
 + 使用不同编程语言的客户端工具,比如[docker-py](https://github.com/docker/docker-py),比如[moby](https://github.com/moby/moby).
 
 这块的例子可以看[官方示例](https://docs.docker.com/engine/api/sdk/examples/)
+
