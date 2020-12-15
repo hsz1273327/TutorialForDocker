@@ -1,1 +1,1 @@
-docker network create --driver bridge --attachable attached_bridge_net
+docker network create --driver bridge --attachable --internal attached_bridge_net
