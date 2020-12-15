@@ -10,10 +10,7 @@ services:
     image: redis
     logging:
       <<: *default-log
-    networks:
-      - test_bridge
-    ports:
-      - "16379:6379"
+    network_mode: "host"
 
   hellodocker:
     build:
@@ -21,7 +18,7 @@ services:
       dockerfile: Dockerfile
     image: hsz1273327/hellodocker:0.0.1
     environment:
-      HELLO_DOCKER_REDIS_URL: redis://outside_redis?db=0 #redis://db-redis?db=0
+      HELLO_DOCKER_REDIS_URL: redis://localhost?db=0 #redis://db-redis?db=0
       HELLO_DOCKER_HOST: 0.0.0.0
       HELLO_DOCKER_PORT: 3000
     labels:
@@ -38,31 +35,11 @@ services:
     mem_limit: 100m
     memswap_limit: 200m
     restart: on-failure
-    scale: 2
     depends_on:
       db-redis:
         condition: service_started
     logging:
       <<: *default-log
-    networks:
-      - test_bridge
-      - attached_bridge_net
+    network_mode: "host"
 
-  balancer:
-    build:
-      context: ./balancer
-      dockerfile: Dockerfile
-    image: nginx_balancer
-    logging:
-      <<: *default-log
-    depends_on:
-      - hellodocker
-    networks:
-      - test_bridge
-    ports:
-      - "3000:3000"
-
-networks:
-  test_bridge:
-  attached_bridge_net:
-    external: true
+ 
