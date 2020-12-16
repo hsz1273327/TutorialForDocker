@@ -1,11 +1,11 @@
 FROM --platform=$TARGETPLATFORM golang:1.15 as build_bin
-ADD main.go /code/main.go
-ADD go.mod /code/go.mod
-ADD go.sum /code/go.sum
-WORKDIR /code
 ENV GO111MODULE=on
 ENV GOPROXY=https://goproxy.io
 ENV CGO_ENABLED=0
+WORKDIR /code
+ADD go.mod /code/go.mod
+ADD go.sum /code/go.sum
+ADD main.go /code/main.go
 RUN go build -ldflags "-s -w" -o hellodocker-go main.go
 
 
