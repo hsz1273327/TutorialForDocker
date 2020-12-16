@@ -4,6 +4,8 @@
 * [Docker的镜像及管理](Docker的镜像及管理/README.md)
     * [Docker的镜像](Docker的镜像及管理/Docker的镜像.md)
     * [镜像仓库](Docker的镜像及管理/镜像仓库.md)
+    * [多阶段构建](Docker的镜像及管理/多阶段构建.md)
+    * [镜像构建优化](Docker的镜像及管理/镜像构建优化.md)
 * [使用protainer管理docker环境](使用Portainer管理Docker环境)
 * [单机使用Docker部署服务](单机使用Docker部署服务/README.md)
     * [使用docker-composeV2编排服务](单机使用Docker部署服务/使用docker-composeV2编排服务.md)

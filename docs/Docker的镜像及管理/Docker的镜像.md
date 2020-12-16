@@ -85,7 +85,7 @@ EXPOSE <port>
 | `ENV`         | 设定环境变量                                                                                                          |
 | `USER`        | 以什么用户身份运行                                                                                                    |
 | `ADD`         | 将构建环境下的文件和目录复制到镜像中                                                                                  |
-| `COPY`        | 类似ADD,但不会做文件提取和解压                                                                                        |
+| `COPY`        | 类似ADD,但不会做文件提取和解压,注意`COPY`的目标都是目录而非文件                                                       |
 | `RUN`         | 运行bash命令                                                                                                          |
 | `EXPOSE`      | 设定外露端口                                                                                                          |
 | `CMD`         | 类似RUN,指定容器启动时运行的命令                                                                                      |
@@ -167,21 +167,6 @@ docker容器的执行方式有两种
 
 因此也可以看出如果两个都定义,那比较合适的用法是在`exec模式`的`ENTRYPOINT`中指定执行程序,`exec模式`的`CMD`中指定默认的执行参数,而在部署容器时则通过声明`command`字段来覆盖镜像中的`CMD`部分达到灵活执行的目的.注意`command`字段同样也要用**字符串列表**的形式声明参数.
 
-## 多阶段构建
-
-我们在构造go语言的程序时往往是这样的步骤:
-
-1. 先将go语言程序编译成可执行文件
-2. 再将可执行文件放入镜像中
-
-但如果要做CI/CD那就必然会有一步在本地执行了.我们可以通过Dockerfile的多阶段构建功能来将这一过程全部交给docker执行.
-
-一个Dockerfile可以定义多个阶段(stage)的编译,并且各个阶段间可以相互依赖.
-
-Dockerfile中的阶段以`FROM`关键字为界,我们可以使用`FROM  xxxx as <stagename>`语句为构建阶段命名.在不同阶段中,我们可以使用`COPY --from=<stagename> <depend_stage_file> <now_stage_file>`的形式将依赖阶段构造出的文件复制进当前阶段的指定位置.
-
-
-
 ## 构建镜像
 
 在定义好`Dockerfile`后就是正式的构建镜像步骤了,这里用到的是`docker build <dockerfile所在的文件夹路径>`命令.
@@ -199,6 +184,8 @@ docker build -t hsz1273327/myimage:latest .
 ```
 
 它的含义是在当前目录下找`Dockerfile`文件构建一个标签为`hsz1273327/myimage:latest`的镜像.
+
+镜像的构建实际是使用的`docker`
 
 ### 镜像的标签
 
