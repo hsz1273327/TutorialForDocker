@@ -180,6 +180,8 @@ docker容器的执行方式有两种
 
 Dockerfile中的阶段以`FROM`关键字为界,我们可以使用`FROM  xxxx as <stagename>`语句为构建阶段命名.在不同阶段中,我们可以使用`COPY --from=<stagename> <depend_stage_file> <now_stage_file>`的形式将依赖阶段构造出的文件复制进当前阶段的指定位置.
 
+
+
 ## 构建镜像
 
 在定义好`Dockerfile`后就是正式的构建镜像步骤了,这里用到的是`docker build <dockerfile所在的文件夹路径>`命令.
