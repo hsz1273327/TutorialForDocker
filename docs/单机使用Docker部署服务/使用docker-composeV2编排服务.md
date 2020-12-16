@@ -129,6 +129,9 @@ build:
 + `context`: 指定`docker build`操作执行所在的文件夹.
 + `dockerfile`: 指定`docker build`操作使用的`Dockerfile`
 + `args`: 指定`Dockerfile`执行时的参数
++ `extra_hosts`:指定build镜像过程中构造的临时容器的dns解析,值为键值对形式
++ `network`:指定build镜像过程中构造的临时容器使用的网络类型
++ `target`:指定dockerfile中的特定stage编译
 
 当然还有其他的配置项,但不常用,需要的话可以去文档里查
 

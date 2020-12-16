@@ -10,6 +10,8 @@
     * [网络设置](单机使用Docker部署服务/网络设置.md)
     * [挂载数据卷](单机使用Docker部署服务/挂载数据卷.md)
     * [容器调用外设](单机使用Docker部署服务/容器调用外设.md)
+    * [log收集与管理](单机使用Docker部署服务/log收集与管理.md)
+    * [服务监控](单机使用Docker部署服务/服务监控.md)
 * [使用Docker的Swarm集群模式部署服务](使用Docker的Swarm集群模式部署服务/README.md)
     * [Swarm集群节点管理](使用Docker的Swarm集群模式部署服务/Swarm集群节点管理.md)
     * [使用docker-composeV3编排服务](使用Docker的Swarm集群模式部署服务/使用docker-composeV3编排服务.md)
