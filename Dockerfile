@@ -1,9 +1,18 @@
-FROM --platform=$TARGETPLATFORM python:3.8
-ADD requirements.txt /code/requirements.txt
-ADD pip.conf /etc/pip.conf
+FROM --platform=$TARGETPLATFORM golang:1.15 as build_bin
+ADD main.go /code/main.go
+ADD go.mod /code/go.mod
+ADD go.sum /code/go.sum
 WORKDIR /code
-RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
-ADD app.py /code/app.py
+ENV GO111MODULE=on
+ENV GOPROXY=https://goproxy.io
+ENV CGO_ENABLED=0
+RUN go build -ldflags "-s -w" -o hellodocker-go main.go
+
+
+FROM --platform=$TARGETPLATFORM alpine:3.12.2 as build_img
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
+RUN apk update && apk add curl && rm -rf /var/cache/apk/*
+COPY --from=build_bin /code/hellodocker-go .
+RUN chmod +x /hellodocker-go
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD [ "curl","-f","http://localhost:5000/ping" ]
-CMD [ "python" ,"app.py"]
+CMD [ "/hellodocker-go"]

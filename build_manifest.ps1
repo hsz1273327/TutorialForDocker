@@ -1,3 +1,3 @@
-docker push hsz1273327/hellodocker
-docker manifest create hsz1273327/hellodocker:0.0.0 hsz1273327/hellodocker:armv6-0.0.0 hsz1273327/hellodocker:armv7-0.0.0 hsz1273327/hellodocker:arm64-0.0.0 hsz1273327/hellodocker:amd64-0.0.0
-docker manifest create hsz1273327/hellodocker:latest hsz1273327/hellodocker:armv6-latest hsz1273327/hellodocker:armv7-latest hsz1273327/hellodocker:arm64-latest hsz1273327/hellodocker:amd64-latest
+docker push -a hsz1273327/hellodocker-go
+docker manifest create --amend hsz1273327/hellodocker-go:0.0.0 hsz1273327/hellodocker-go:armv6-0.0.0 hsz1273327/hellodocker-go:armv7-0.0.0 hsz1273327/hellodocker-go:arm64-0.0.0 hsz1273327/hellodocker-go:amd64-0.0.0
+docker manifest create --amend hsz1273327/hellodocker-go:latest hsz1273327/hellodocker-go:armv6-latest hsz1273327/hellodocker-go:armv7-latest hsz1273327/hellodocker-go:arm64-latest hsz1273327/hellodocker-go:amd64-latest
