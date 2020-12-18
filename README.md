@@ -8,3 +8,6 @@
 + 执行`bash run_container.sh`使用镜像执行容器
 
 这样打开浏览器http://localhost:5000就可以看到helloworld字样.
+
+
+这个项目下面实际是sanic和flask+tornado两种实现,分别对应有c扩展和没有c扩展的情况
