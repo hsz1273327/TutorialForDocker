@@ -1,1 +1,1 @@
-docker run --pull -d -p 5000:5000 hsz1273327/hellodocker-go:0.0.0
+docker run --pull -d -p 5000:5000 hsz1273327/hellodocker:0.0.0
