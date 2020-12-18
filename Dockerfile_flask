@@ -4,7 +4,6 @@ RUN pip install --upgrade pip
 WORKDIR /code
 RUN mkdir /code/app
 ADD requirements_flask.txt /code/requirements.txt
-RUN pip install -r requirements.txt
 RUN python -m pip install -r requirements.txt --target app
 RUN rm -rf app/*.dist-info
 ADD app/__main__.py /code/app/__main__.py
