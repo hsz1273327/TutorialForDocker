@@ -16,8 +16,7 @@ RUN chmod +x /hellodocker-go
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD [ "curl","-f","http://localhost:5000/ping" ]
 CMD [ "/hellodocker-go"]
 
-FROM --platform=$TARGETPLATFORM alpine:3.12.2 as upx
-ARG TARGETARCH
+FROM --platform=$TARGETPLATFORM alpine:3.11 as upx
 WORKDIR /code
 # 安装upx
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
