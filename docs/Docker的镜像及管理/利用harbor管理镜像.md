@@ -355,14 +355,29 @@ harbor提供了手动回收和自动定时回收两种方式,这两种方式都�
 如果部署时使用了`--with-notary`,那么harbor就会多开出一个端口(默认`4443`)用于提供Notary的签名服务.
 Notary的目标是保证server和client之间的交互使用可信任的连接,从而确保镜像的完整性和可信度,用于解决互联网的内容发布的安全性问题.其原理还是数字签名技术,通过设置签名服务器在客户端来为build的镜像创建签名,当push时这个签名也会被带到镜像仓库;而从镜像仓库pull镜像时则会校验这个签名.
 
-对于客户端来说,
+需要注意由于windows上文件夹名不能存在`:`符号,所以如果你的镜像仓库有端口号,那么就无法在window上做认证.
 
-我们需要设置两个环境变量来激活这一功能:
+> 对于客户端来说,我们需要设置如下几个步骤
 
-+ `DOCKER_CONTENT_TRUST=1`:表示开启Docker内容信任模式,这个模式下push/pull操作的目标必须是有签名的.
-+ `DOCKER_CONTENT_TRUST_SERVER=xxxxx`:指定认证服务器,harbor中默认就是`4443`端口
+1. 设置根证书
+    镜像认证基于tls,它需要我们信任发放证书的第三方也就是信任根证书.在`~/.docker/tls/你的harbor域名/`目录中放入根证书
 
-对于harbor管理来说我们可以设置`项目->具体项目->配置管理->部署安全->内容信任`来管理是否仅允许拉取通过认证的镜像.
+2. 设置环境变量
+    我们需要设置两个环境变量来激活这一功能:
+
+    + `DOCKER_CONTENT_TRUST=1`:表示开启Docker内容信任模式,这个模式下push/pull操作的目标必须是有签名的.
+    + `DOCKER_CONTENT_TRUST_SERVER=xxxxx`:指定认证服务器,harbor中默认就是`4443`端口,注意其格式为`https://xxxx:xxx`
+
+  当设置了这两个参数后我们push镜像时就必须指定tag了,使用`-a`推送全部不会进行签名操作.如果我们在指定了这两个环境变量后希望不进行签名,那么可以在`push`子命令中加入标识`--disable-content-trust`
+
+3. (可选)我们可以设置notary为如下值方便管理本地的可信仓库
+
+    + windows:`set-alias notary "notary --server https://<远程notray服务器地址> --trustDir ~/.docker/trust --tlscacert <dtr-ca.pem>"`
+    + 其他:`alias notary="notary --server https://<dtr-url> --trustDir ~/.docker/trust --tlscacert <dtr-ca.pem>"`
+
+> 对于harbor管理来说我们可以设置:
+
+`项目->具体项目->配置管理->部署安全->内容信任`来管理是否仅允许拉取通过认证的镜像.这边建议不要开启,而是更多的在人员管理上做文章
 
 我们也可以很方便的在制品列表中看到镜像是都通过认证.
 
