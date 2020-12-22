@@ -1,6 +1,6 @@
 $env:DOCKER_CONTENT_TRUST=1
 $env:DOCKER_CONTENT_TRUST_SERVER="https://dev.hszofficial.site:4443"
-notary -s https://dev.hszofficial.site:4443 -d ~/.docker/trust
+
 docker push dev.hszofficial.site:9443/test/hellodocker:armv6-0.0.0
 docker push dev.hszofficial.site:9443/test/hellodocker:armv7-0.0.0
 docker push dev.hszofficial.site:9443/test/hellodocker:arm64-0.0.0
