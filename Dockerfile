@@ -6,7 +6,7 @@ RUN mkdir /code/app
 ADD requirements_flask.txt /code/requirements.txt
 RUN python -m pip install -r requirements.txt --target app
 RUN rm -rf app/*.dist-info
-ADD app/__main__.py /code/app/__main__.py
+ADD appflask/__main__.py /code/app/__main__.py
 RUN python -m zipapp -p "/usr/bin/env python3" app
 
 FROM python:3.8.6-alpine as app
