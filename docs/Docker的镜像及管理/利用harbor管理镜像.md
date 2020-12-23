@@ -376,7 +376,7 @@ Notary的目标是保证server和client之间的交互使用可信任的连接,�
     + `DOCKER_CONTENT_TRUST=1`:表示开启Docker内容信任模式,这个模式下push/pull操作的目标必须是有签名的.
     + `DOCKER_CONTENT_TRUST_SERVER=xxxxx`:指定认证服务器,harbor中默认就是`4443`端口,注意其格式为`https://xxxx:xxx`
 
-  当设置了这两个参数后我们push镜像时就必须指定tag了,使用`-a`推送全部不会进行签名操作.如果我们在指定了这两个环境变量后希望不进行签名,那么可以在`push`子命令中加入标识`--disable-content-trust`
+    当设置了这两个参数后我们push镜像时就必须指定tag了,使用`-a`推送全部不会进行签名操作.如果我们在指定了这两个环境变量后希望不进行签名,那么可以在`push`子命令中加入标识`--disable-content-trust`
 
 3. 我们可以设置notary为如下值方便管理本地的可信仓库(可选)
 
@@ -561,11 +561,9 @@ services:
 
 ##### 配置客户端
 
-客户端配置相对会麻烦些.
+客户端配置相对会麻烦些.大致可以分为3步:
 
-1. 为每台机器部署客户端
-
-    假设我们使用的是swarm部署的,那么可以利用`mode: global`在其中每台机器上部署,使用`config`来统一客户端配置(`dfdaemon-config`),使用
+1. 为客户端写配置文件
 
     dragonfly的客户端需要在所有要用它的机器上部署,其配置文件大致应该是这样:
 
@@ -577,7 +575,7 @@ services:
           remote: https://index.docker.io
           insecure: false
           certs: []
-        dfget_flags: ["--node","dfsupernode=1","-f","Expires&Signature"]
+        dfget_flags: ["--node","mysupernodehost:8002=1","-f","Expires&Signature"]
         proxies:
           # 代理所有经过它代理的拉取镜像的http请求
           - regx: blobs/sha256.*
@@ -590,7 +588,7 @@ services:
           remote: https://index.docker.io
           insecure: false
           certs: []
-        dfget_flags: ["--node","dfsupernode=1","-f","Expires&Signature"]
+        dfget_flags: ["--node","mysupernodehost:8002=1","-f","Expires&Signature"]
         proxies:
           # 代理所有经过它代理的拉取镜像的http请求
           - regx: blobs/sha256.*
@@ -599,7 +597,7 @@ services:
           cert: /keys/df.crt
           key: /keys/df.key
           hosts:
-            - regx: mysupernodehost:9443
+            - regx: myharbor:9443
         ```
 
         + 创建``
@@ -635,7 +633,7 @@ services:
           remote: https://index.docker.io
           insecure: false
           certs: []
-        dfget_flags: ["--node","dfsupernode=1","-f","Expires&Signature"]
+        dfget_flags: ["--node","mysupernodehost:8002=1","-f","Expires&Signature"]
         proxies:
           # 代理所有经过它代理的拉取镜像的http请求
           - regx: blobs/sha256.*
@@ -644,64 +642,99 @@ services:
           cert: /keys/df.crt
           key: /keys/df.key
           hosts:
-            - regx: mysupernodehost:9443
+            - regx: myharbor:9443
               #如果你的harbor是自己签名的需要将根证书放在这里
               certs: ["ca.crt"]
         ```
 
-    然后使用下面的方式部署客户端到整个集群
+2. 部署客户端
 
-    ```yml
-    version: "3.8"
+> docker standalone部署
 
-    x-log: &default-log
-      options:
-        max-size: "10m"
-        max-file: "3"
+```yml
+version: "2.4"
 
-    services:
-      dfclient:
-        image: hsz1273327/dragonfly-client:1.0.6
-        logging:
-          <<: *default-log
-        ports:
-          - "65001:65001"
-        volumes:
-          - "你的节点数据文件夹位置:/root/.small-dragonfly"
-        configs:
-          - source: dfdaemon-config
-            target: /etc/dragonfly/dfdaemon-config.yml
-        secrets:
-          - source: dfdaemon-df_key
-            target: /keys/df.key
-          - source: dfdaemon-df_crt
-            target: /keys/df.crt
+x-log: &default-log
+  options:
+    max-size: "10m"
+    max-file: "3"
 
-        deploy:
-          mode: global
-          resources:
-            limits:
-              cpus: '0.5'
-              memory: 200M
-          restart_policy:
-            condition: on-failure
-            delay: 5s
-            max_attempts: 3
-            window: 100s
+services:
+  dfclient:
+    image: hsz1273327/dragonfly-client:1.0.6
+    logging:
+      <<: *default-log
+    cpus: 0.8
+    mem_limit: 100m
+    memswap_limit: 200m
+    restart: on-failure
+    ports:
+      - "65001:65001"
+    volumes:
+      - "你的节点数据文件夹位置:/root/.small-dragonfly"
+      - "你的节点配置位置:/etc/dragonfly/dfdaemon-config.yml"
+      - "你的key文件夹:/keys"
+```
 
+/home/hsz/workspace/docker_deploy
+
+> swarm部署
+
+我们可以利用`mode: global`在其中每台机器上部署,使用`config`来统一客户端配置(`dfdaemon-config`),使用
+
+然后使用下面的方式部署客户端到整个集群
+
+```yml
+version: "3.8"
+
+x-log: &default-log
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  dfclient:
+    image: hsz1273327/dragonfly-client:1.0.6
+    logging:
+      <<: *default-log
+    ports:
+      - "65001:65001"
+    volumes:
+      - "你的节点数据文件夹位置:/root/.small-dragonfly"
     configs:
-      dfdaemon-config:
-        external: true
-
+      - source: dfdaemon-config
+        target: /etc/dragonfly/dfdaemon-config.yml
     secrets:
-      dfdaemon-df_key:
-        external: true
-      dfdaemon-df_crt:
-        external: true
+      - source: dfdaemon-df_key
+        target: /keys/df.key
+      - source: dfdaemon-df_crt
+        target: /keys/df.crt
 
-    ```
+    deploy:
+      mode: global
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 200M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 100s
 
-2. 为每台机器设置http代理
+configs:
+  dfdaemon-config:
+    external: true
+
+secrets:
+  dfdaemon-df_key:
+    external: true
+  dfdaemon-df_crt:
+    external: true
+
+```
+
+1. 为每台机器设置http代理
 
     + `/etc/systemd/system/docker.service.d/http-proxy.conf`
 
