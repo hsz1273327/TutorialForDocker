@@ -6,40 +6,20 @@ x-log: &default-log
     max-file: "3"
 
 services:
-  db-redis:
-    image: redis
+  iperf3-serv:
+    image: hsz1273327/iperf3:3.7
     logging:
       <<: *default-log
-    network_mode: "host"
+    ports:
+      - "5201:5201"
+    command: ["-s"]
 
-  hellodocker:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-    image: hsz1273327/hellodocker:0.0.1
-    environment:
-      HELLO_DOCKER_REDIS_URL: redis://localhost?db=0 #redis://db-redis?db=0
-      HELLO_DOCKER_HOST: 0.0.0.0
-      HELLO_DOCKER_PORT: 3000
-    labels:
-      - "hsz.hsz.image=hellodocker"
-      - "hsz.hsz.desc=hello docker with get/set foo in redis"
-    command: ["./wait-for-it.sh", "db-redis:6379", "--", "python", "app.py"]
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/ping"]
-      interval: 1m30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    cpus: 0.8
-    mem_limit: 100m
-    memswap_limit: 200m
-    restart: on-failure
+  iperf3-test:
+    image: hsz1273327/iperf3:3.7
     depends_on:
-      db-redis:
-        condition: service_started
+      - iperf3-serv
     logging:
       <<: *default-log
-    network_mode: "host"
-
- 
+    command: ["-c", "iperf3-serv","-d","--get-server-output"]
+   
+    
