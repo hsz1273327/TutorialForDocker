@@ -393,16 +393,354 @@ Notary的目标是保证server和client之间的交互使用可信任的连接,�
 
 镜像管理另一个大问题是镜像分发,
 
-[Dragonfly](https://github.com/dragonflyoss/Dragonfly),是阿里开源的基于p2p的分发工具,它的特点是配置简单,我们需要配置的就3步:
+[Dragonfly](https://github.com/dragonflyoss/Dragonfly),是阿里开源的基于p2p的分发工具.其执行原理是:
+
+1. 当执行`docker pull`操作时,客户端镜像会通过`df-daemon`使用代理的方式拦截请求并将请求转发给`supernode`节点.`supernode`节点的地址已经在客户端镜像中的`/etc/dragonfly.conf`文件中配置好了.
+
+2.`df-daemon`启动的时候带了`registry`参数,并且通过`df-get`传给服务端`supernode`.`supernode`解析参数到对应的镜像仓库获取镜像并以`block`的形式返回给客户端.如果再次拉取镜像时,`supernode`就会检测哪一个客户端存在和镜像文件对应的`block`,如果存在直接从该client下载,如果不存在就到镜像仓库拉取镜像.
+
+它的最大特点是结构简单,虽然是p2p的实现,但实际上还是一个中心化分发的思路,它解决的实际上是镜像分发环节中对镜像仓库的依赖问题,可以看到只要与`supernode`相连的的客户端中只要有一个已经有了就可以内部消化.这也变相一部分的解决了镜像走外网拉取的问题,可以减少外网流量.
+
+我们需要配置的就3步:
 
 + 一个超级节点
 + 在需要使用这个功能的节点上配置客户端
 + 修改客户端节点上的docker配置
 
+Dragonfly目前(release版本号1.0.6)官方只提供了`amd64`版本的镜像,通常超级节点会独立于集群,可能就是和harbor部署在一起,那一般它也是一个amd64的机器,所以超级节点只提供amd64的版本问题不大,但节点环境就复杂多了,比如我家里的有armv7版本的节点(32位PiOs)也有arm64的节点(64位ubuntu for pi).
 
+好在它是个go语言的程序,我们可以很轻易的在各个平台编译,我在[这个fork](https://github.com/Basic-Components/Dragonfly/tree/build-multiplateform)上构造了amd64,arm64,armv7三个版本的1.0.6版本的客户端镜像,托管在[docker hub](https://registry.hub.docker.com/repository/docker/hsz1273327/dragonfly-client/tags?page=1&ordering=last_updated)上.测试可以使用.目前看官方也已经加入了对arm64平台的支持,相信下一个版本就会有了.
+
+##### 配置Dragonfly的超级节点
+
+以下是超级节点的配置文件(镜像中位置`/etc/dragonfly/supernode.yml`)
+
+```yml
+# This file is the template of supernode configuration file.
+# You can configure your supernode by change the parameter according your requirement.
+---
+base:
+  # ListenPort is the port supernode server listens on.
+  # default: 8002
+  listenPort: 8002
+
+  # DownloadPort is the port for download files from supernode.
+  # And you should start a file server firstly which listens on the download port.
+  # default: 8001
+  downloadPort: 8001
+
+  # HomeDir is working directory of supernode.
+  # default: /home/admin/supernode
+  homeDir: /home/admin/supernode
+
+  # the core pool size of ScheduledExecutorService.
+  # When a request to start a download task, supernode will construct a thread concurrent pool
+  # to download pieces of source file and write to specified storage.
+  # Note: source file downloading is into pieces via range attribute set in HTTP header.
+  # default: 10
+  schedulerCorePoolSize: 10
+
+  # PeerUpLimit is the upload limit of a peer. When dfget starts to play a role of peer,
+  # it can only stand PeerUpLimit upload tasks from other peers.
+  # default: 5
+  peerUpLimit: 5
+
+  # PeerDownLimit is the download limit of a peer. When a peer starts to download a file/image,
+  # it will download file/image in the form of pieces. PeerDownLimit mean that a peer can only
+  # stand starting PeerDownLimit concurrent downloading tasks.
+  # default: 4
+  peerDownLimit: 4
+
+  # When dfget node starts to play a role of peer, it will provide services for other peers
+  # to pull pieces. If it runs into an issue when providing services for a peer, its self failure
+  # increases by 1. When the failure limit reaches EliminationLimit, the peer will isolate itself
+  # as a unhealthy state. Then this dfget will be no longer called by other peers.
+  # default: 5
+  eliminationLimit: 5
+
+  # FailureCountLimit is the failure count limit set in supernode for dfget client.
+  # When a dfget client takes part in the peer network constructed by supernode,
+  # supernode will command the peer to start distribution task.
+  # When dfget client fails to finish distribution task, the failure count of client
+  # increases by 1. When failure count of client reaches to FailureCountLimit(default 5),
+  # dfget client will be moved to blacklist of supernode to stop playing as a peer.
+  # default: 5
+  failureCountLimit: 5
+
+  # SystemReservedBandwidth is the network bandwidth reserved for system software.
+  # default: 20 MB, in format of G(B)/g/M(B)/m/K(B)/k/B, pure number will also be parsed as Byte.
+  systemReservedBandwidth: 20M
+
+  # MaxBandwidth is the network bandwidth that supernode can use.
+  # default: 200 MB, in format of G(B)/g/M(B)/m/K(B)/k/B, pure number will also be parsed as Byte.
+  maxBandwidth: 200M
+
+  # Whether to enable profiler
+  # default: false
+  enableProfiler: false
+
+  # Whether to open DEBUG level
+  # default: false
+  debug: false
+
+  # FailAccessInterval is the interval time after failed to access the URL.
+  # If a task failed to be downloaded from the source, it will not be retried in the time since the last failure.
+  # default: 3m
+  failAccessInterval: 3m
+
+  # gc related
+
+  # GCInitialDelay is the delay time from the start to the first GC execution.
+  # default: 6s
+  gcInitialDelay: 6s
+
+  # GCMetaInterval is the interval time to execute GC meta.
+  # default: 2m0s
+  gcMetaInterval: 2m
+
+  # TaskExpireTime when a task is not accessed within the taskExpireTime,
+  # and it will be treated to be expired.
+  # default: 3m0s
+  taskExpireTime: 3m
+
+  # PeerGCDelay is the delay time to execute the GC after the peer has reported the offline.
+  # default: 3m0s
+  peerGCDelay: 3m
+
+  # GCDiskInterval is the interval time to execute GC disk.
+  # default: 15s
+  gcDiskInterval: 15s
+
+  # YoungGCThreshold if the available disk space is more than YoungGCThreshold
+  # and there is no need to GC disk.
+  # default: 100GB
+  youngGCThreshold: 100G
+
+  #  FullGCThreshold if the available disk space is less than FullGCThreshold
+  #  and the supernode should gc all task files which are not being used.
+  #  default: 5GB
+  fullGCThreshold: 5G
+
+  # IntervalThreshold is the threshold of the interval at which the task file is accessed.
+  # default: 2h0m0s
+  IntervalThreshold: 2h
+```
+
+我们根据需求修改其中的配置,然后通过如下docker-compose文件部署到amd64的机器上:
+
+```yml
+version: "2.4"
+
+x-log: &default-log
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  supernode:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile.supernode
+    image: dragonflyoss/supernode:1.0.6
+    logging:
+      <<: *default-log
+    cpus: 0.8
+    mem_limit: 100m
+    memswap_limit: 200m
+    restart: on-failure
+    ports:
+      - "8001:8001"
+      - "8002:8002"
+    volumes:
+      - "你的数据文件夹用于存储镜像:/home/admin/supernode"
+      - "你的超级节点配置文件位置:/etc/dragonfly/supernode.yml"
+    command: ["--download-port=8001"]
+```
+
+部署好后我们假设其地址为`mysupernodehost`
+
+##### 配置客户端
+
+客户端配置相对会麻烦些.
+
+1. 为每台机器部署客户端
+
+    假设我们使用的是swarm部署的,那么可以利用`mode: global`在其中每台机器上部署,使用`config`来统一客户端配置(`dfdaemon-config`),使用
+
+    dragonfly的客户端需要在所有要用它的机器上部署,其配置文件大致应该是这样:
+
+    + harbor没有使用https
+
+        ```yml
+        # 设置对docker hub的加速
+        registry_mirror:
+          remote: https://index.docker.io
+          insecure: false
+          certs: []
+        dfget_flags: ["--node","dfsupernode=1","-f","Expires&Signature"]
+        proxies:
+          # 代理所有经过它代理的拉取镜像的http请求
+          - regx: blobs/sha256.*
+        ```
+
+    + harbor使用了https
+
+        ```yml
+        registry_mirror:
+          remote: https://index.docker.io
+          insecure: false
+          certs: []
+        dfget_flags: ["--node","dfsupernode=1","-f","Expires&Signature"]
+        proxies:
+          # 代理所有经过它代理的拉取镜像的http请求
+          - regx: blobs/sha256.*
+        hijack_https:
+          # 创建df使用的私钥-证书对,可以在
+          cert: /keys/df.crt
+          key: /keys/df.key
+          hosts:
+            - regx: mysupernodehost:9443
+        ```
+
+        + 创建``
+
+            ```bash
+            openssl genrsa -des3 -passout pass:<随机4个以上字符的字符串> -out df.pass.key 2048
+            openssl rsa -passin pass:<上面的字符串> -in df.pass.key -out df.key
+            rm df.pass.key
+            ```
+
+        + 创建`df.crt`
+
+            ```bash
+            openssl req -new -key df.key -out df.csr
+            openssl x509 -req -sha256 -days 365 -in df.csr -signkey df.key -out df.crt
+            rm df.csr
+            ```
+
+        注意这个在windows上无法创建,创建好后可以利用swarm的`secrets`将其保存好(`dfdaemon-df_key`和`dfdaemon-df_crt`).之后还要将harbor设置为`insecure-registries`
+
+        ```json
+        {
+          "insecure-registries": ["mysupernodehost:9443"]
+        }
+        ```
+
+    + harbor使用了自签名的https
+
+        除了上面`harbor使用了https`的步骤外还需要将自签名的根证书放入配置
+
+        ```yml
+        registry_mirror:
+          remote: https://index.docker.io
+          insecure: false
+          certs: []
+        dfget_flags: ["--node","dfsupernode=1","-f","Expires&Signature"]
+        proxies:
+          # 代理所有经过它代理的拉取镜像的http请求
+          - regx: blobs/sha256.*
+        hijack_https:
+          # 创建df使用的私钥-证书对
+          cert: /keys/df.crt
+          key: /keys/df.key
+          hosts:
+            - regx: mysupernodehost:9443
+              #如果你的harbor是自己签名的需要将根证书放在这里
+              certs: ["ca.crt"]
+        ```
+
+    然后使用下面的方式部署客户端到整个集群
+
+    ```yml
+    version: "3.8"
+
+    x-log: &default-log
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    services:
+      dfclient:
+        image: hsz1273327/dragonfly-client:1.0.6
+        logging:
+          <<: *default-log
+        ports:
+          - "65001:65001"
+        volumes:
+          - "你的节点数据文件夹位置:/root/.small-dragonfly"
+        configs:
+          - source: dfdaemon-config
+            target: /etc/dragonfly/dfdaemon-config.yml
+        secrets:
+          - source: dfdaemon-df_key
+            target: /keys/df.key
+          - source: dfdaemon-df_crt
+            target: /keys/df.crt
+
+        deploy:
+          mode: global
+          resources:
+            limits:
+              cpus: '0.5'
+              memory: 200M
+          restart_policy:
+            condition: on-failure
+            delay: 5s
+            max_attempts: 3
+            window: 100s
+
+    configs:
+      dfdaemon-config:
+        external: true
+
+    secrets:
+      dfdaemon-df_key:
+        external: true
+      dfdaemon-df_crt:
+        external: true
+
+    ```
+
+2. 为每台机器设置http代理
+
+    + `/etc/systemd/system/docker.service.d/http-proxy.conf`
+
+    ```conf
+    [Service]
+    Environment="HTTP_PROXY=http://127.0.0.1:65001"
+    Environment="HTTPS_PROXY=http://127.0.0.1:65001"
+    Environment="NO_PROXY=localhost,127.0.0.1,registry.docker-cn.com,hub-mirror.c.163.com,docker.mirrors.ustc.edu.cn,index.docker.io" # 不走代理的域名
+    ```
+
+    之后重启docker
+
+    ```bash
+    sudo systemctl daemon-reload 
+    sudo systemctl restart docker
+    ```
+
+   这样之后我们就可以利用`dragonfly`通过p2p方式分发harbor中的镜像了
+
+##### 配置harbor
+
+在harbor中我们可以为`dragonfly`预热镜像,在`系统管理->分布式分发`中可以设置`dragonfly`的`supernode`,然后我们可以在项目下的`p2p预热`中设置预热规则.可以通过过滤器设置哪些镜像会被预热,然后可以设置定时预热或者事件触发预热.
+
+过滤器支持`双星语法`,其规则如下:
+
+| 特殊字符     | 含义                                                                                                                              |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `*`          | 匹配任何非路径分隔符序列                                                                                                          |
+| `**`         | 匹配任何字符序列，包括路径分隔符                                                                                                  |
+| `?`          | 匹配任何单个非路径分隔符字符                                                                                                      |
+| `[class]`    | 匹配一类非路径分隔符的单个字符,支持的有`[abc]`特定单个在集合中的字符,`[a-z]`特定单个在范围中的字符,`[^class]`特定不在范围中的字符 |
+| `{alt1,...}` | 如果逗号分隔的替代项之一匹配,则匹配一个字符序列                                                                                   |
 
 ### 仓库管理
 
 harbor除了自己可以作为镜像仓库外也可以用于与外部的仓库同步.我们需要在`系统管理->仓库管理`中定义好自己的目标仓库,并提供登录信息.然后再在`系统管理->复制管理`中定义规则.
 
 harbor不仅支持其他harbor仓库和dockerhub,也支持比如华为云在内的其他许多仓库实现.而规则可以是从本仓库复制到目标仓库也可以是从目标仓库复制到本仓库.这以特性可以解决多地部署的镜像同步问题.
+
+### 总结
+
+harbor和dragonfly都是早期进入CNCF的中国原创开源项目,而且目前看都属于简单易用可以迅速占领市场的那种.虽然这两个项目的文档都不太好,但胜在部署简单.他们是国内在开源领域少有的脚踏实地的项目,值得尝试.尤其是dragonfly,大家都知道阿里开源的项目向来管杀不管埋(`x-deeplearning`,`weex`),难得出了这个维护的有模有样的让人刮目相看.

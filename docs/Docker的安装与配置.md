@@ -146,6 +146,34 @@ Docker在Linux下的配置一般在`/etc/docker/daemon.json`,在Docker Desktop�
 }
 ```
 
+### 设置网络代理
+
+如果我们需要通过docker访问外网,比如push,pull这类操作时,docker自身并没有设置网络代理的功能,但我们可以通过设置`systemctl`来达到这个效果,步骤是:
+
+1. `sudo mkdir -p /etc/systemd/system/docker.service.d` 创建配置用的文件夹
+
+2. `sudo nano /etc/systemd/system/docker.service.d/http-proxy.conf`创建配置,其中这样填
+
+    ```conf
+    [Service]
+    Environment="HTTP_PROXY=http://proxy.example.com:80" # http代理
+    Environment="HTTPS_PROXY=https://proxy.example.com:443" # https代理
+    Environment="NO_PROXY=localhost,127.0.0.1,docker-registry.example.com,.corp" # 不走代理的域名
+    ```
+
+3. 重载docker配置:
+
+    ```bash
+    sudo systemctl daemon-reload
+    sudo systemctl restart docker
+    ```
+
+4. 校验是否设置成功
+
+    ```bash
+    sudo systemctl show --property=Environment docker
+    ```
+
 ## helloworld
 
 按照传统,我们的第一个例子是一个helloworld,我们来演示下docker的最简单使用流程.例子在[python_docker_example](https://github.com/hszofficial/python_docker_example),这个例子所在的仓库也是我们后续文章使用的仓库,这个例子在[helloworld分支](https://github.com/hsz1273327/TutorialForDocker/tree/example-helloworld).我们用sanic构造一个helloworld服务,借助它来直观的感受下docker的使用流程.
