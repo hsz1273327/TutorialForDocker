@@ -16,6 +16,19 @@ docker的镜像是底层由引导文件系统(bootfs),上层由文件系统叠�
 
 当docker第一次启动容器时,时间上读写层是空的,当文件系统发生变化时这些变化都会应用到这一层,它会从只读层将要改的文件复制到读写层,然后所有修改都在读写层而不会影响只读层而只读层的文件将在使用时代替读写层的对应文件.这种机制便是写时复制,利用这一机制我们可以快速构建镜像并运行包含我们自己应用的容器.
 
+## OCI中的`image spec`
+
+Docker的镜像满足OCI中的`image spec`,因此即便我们不使用docker的docker的镜像,只要runtime满足OCI中的接口定义那就可以使用docker构造的镜像.
+
+比如k8s现在已经完全弃用docker服务了,但因为其使用的运行时还是满足OCI中定义的接口,因此k8s依然可以使用docker构造的镜像.
+
+OCI容器镜像主要包括几块内容：
+
++ 文件系统:以`layer`保存的文件系统,每个`layer`保存了和上层之间变化的部分,`layer`应该保存哪些文件,怎么表示增加,修改和删除的文件等.
++ `config`文件:保存了文件系统的层级信息(每个层级的hash值,以及历史信息),以及容器运行时需要的一些信息(比如环境变量,工作目录,命令参数,mount列表等),指定了镜像在某个特定平台和系统的配置.比较接近我们使用`docker inspect <image_id>`看到的内容.
++ `manifest`文件:镜像的`config`文件索引,有哪些`layer`，额外的`annotation`信息,`manifest`文件中保存了很多和当前平台有关的信息.
++ `index`文件:可选的文件,指向不同平台的`manifest文件`,这个文件能保证一个镜像可以跨平台使用,每个平台拥有不同的`manifest`文件,使用index作为索引.
+
 ## 构建镜像的基本工作流
 
 一般我们构建镜像都是基于一个基镜像的,我们的那ubuntu作为基镜像,那么在其之上我们怎么构建镜像呢?有两种方式:
@@ -72,7 +85,7 @@ EXPOSE <port>
 | `ENV`         | 设定环境变量                                                                                                          |
 | `USER`        | 以什么用户身份运行                                                                                                    |
 | `ADD`         | 将构建环境下的文件和目录复制到镜像中                                                                                  |
-| `COPY`        | 类似ADD,但不会做文件提取和解压                                                                                        |
+| `COPY`        | 类似ADD,但不会做文件提取和解压,注意`COPY`的目标都是目录而非文件                                                       |
 | `RUN`         | 运行bash命令                                                                                                          |
 | `EXPOSE`      | 设定外露端口                                                                                                          |
 | `CMD`         | 类似RUN,指定容器启动时运行的命令                                                                                      |
@@ -98,7 +111,7 @@ EXPOSE <port>
 
 对于许多服务或程序一个常见的需求就是健康检测了,我们通常写一个服务都会给一个`ping-pong`接口用于检测心跳防止服务起着但是已经不再可用.不用docker的话通常我们是在外部定义一个定时任务隔段时间请求一次来确保可用.而如果是docker的话就可以设置健康检查脚本了(前提是镜像中有对应的工具支持).当然了更加推荐的是在构建镜像时定义健康检查.
 
-> 例1: [为我们的helloworld项目提供健康检测功能](https://github.com/hsz1273327/TutorialForDocker/tree/helloworld-with-healthcheck)
+> 例1: [为我们的helloworld项目提供健康检测功能](https://github.com/hsz1273327/TutorialForDocker/tree/checkimage-build_healthycheck)
 
 + `dockerfile`
 
@@ -110,9 +123,11 @@ WORKDIR /code
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 ADD app.py /code/app.py
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD [ "curl","http://localhost:5000/ping" ]
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD [ "curl","-f","http://localhost:5000/ping" ]
 CMD [ "python" ,"app.py"]
 ```
+
+使用`docker ps`如果在容器的`STATUS`信息中看到有`health`字样,表明健康检查被激活了.
 
 ### CMD和ENTRYPOINT
 
@@ -170,9 +185,26 @@ docker build -t hsz1273327/myimage:latest .
 
 它的含义是在当前目录下找`Dockerfile`文件构建一个标签为`hsz1273327/myimage:latest`的镜像.
 
+镜像的构建实际是使用的`docker`
+
+### 镜像的标签
+
+我们上面说了镜像的标签,docker体系下镜像标签不光是一个简单标签,它是有规范的.
+
+符合规范的标签大致可以分为如下几种形式:
+
++ `dockerhub账号/镜像名:版本`
++ `私有镜像仓库地址/仓库二级目录名/镜像名:版本`
+
+没错,镜像的标签是和镜像分发有关的.需要额外注意的是`版本`,docker镜像中`latest`有特殊地位,它的含义是最新的稳定版本.因此如果拉取镜像时不指定版本那么docker会自动拉取`latest`版本的镜像.
+
 ### 跨指令集编译镜像
 
-如果我们的基镜像是arm版而我们的编译环境为x86-64,那很遗憾我们无法成功编译镜像.但实际上也不是没有办法,我们可以设置开启[buildx](https://docs.docker.com/buildx/working-with-buildx/)特性.注意buildx是一项实验特性,目前并不稳定.但可以用.
+如果我们的基镜像是arm版而我们的编译环境为x86-64,那很遗憾我们无法成功编译镜像.但实际上也不是没有办法,我们可以设置开启[buildx](https://docs.docker.com/buildx/working-with-buildx/)特性.注意buildx是一项实验特性(在`docker 19.03`之前都没有),目前并不稳定.但可以用.
+
+本例在[example-image-build-buildx](https://github.com/hsz1273327/TutorialForDocker/tree/example-image-build-buildx)
+
+#### 激活跨平台镜像编译功能
 
 我们需要在docker设置中开启这一特性:
 
@@ -203,38 +235,7 @@ Status:    running
 Platforms: linux/amd64, linux/arm64, linux/riscv64, linux/ppc64le, linux/s390x, linux/386, linux/arm/v7, linux/arm/v6
 ```
 
-一般来说我们会用到的平台也就是`linux/amd64`(一般pc),`linux/arm64`(树莓派3,4的硬件),`linux/arm/v7`(树莓派3,4的默认系统).
-
-如果我们的编译器不是`running`状态可以使用`docker buildx use {编译器名}`来指定激活编译器.
-
-在确保我们的编译器是`running`状态时我们可以执行镜像的编译操作:
-
-```bash
-docker buildx build --platform={指定平台} -t {tag} . [--load|--push]
-```
-
-`docker buildx build`命令类似`docker build`,除此之外还可以使用flag`--push`直接将镜像推送到镜像仓库,而`--load`则会打包到本地.
-
-实测`--push`相当不稳定,经常会`io timeout`.一个比较稳妥的做法是先每个平台单独执行`docker buildx build --load`,注意`-t`中的tag要标明平台,即`xxxx:arm64-0.0.0`这种形式.然后在整体执行一次`docker buildx build --push`.能推送成功最好,不行我们可以手动执行`docker manifest`操作,将编译生成的不同平台的镜像手动打包上传
-
-```bash
-docker manifest create {manifest_tag} \
-{platform_tag} \
-{platform_tag} \
-...
-
-docker manifest push {manifest_tag}
-```
-
-需要注意`docker buildx build`命令可能会在拉取arm镜像的时候报`TLS handshake timeout`错误,可以通过设置docker的配置增大对大文件的支持来缓解:
-
-```json
-{
-  "mtu": 1300
-}
-```
-
-来解决.这是因为本质上我们的编译过程是在docker容器中执行的,宿主机网络的mtu一般是1500,而容器中一般会比这个值略小(1450的样子),我们只有将`mtu`参数设置的至少和容器中的一致tls才不容易出错.1300也是一个经验值.
+一般来说我们会用到的平台也就是`linux/amd64`(一般pc),`linux/arm64`(树莓派4的硬件,需要更新系统未arm64位),`linux/arm/v7`(树莓派3,4的默认系统).
 
 #### dockerfile中的跨平台设置
 
@@ -259,63 +260,29 @@ dockerfile中支持的与跨平台相关的上下文变量有:
 | `BUILDARCH`      | 构建镜像主机平台的架构类型                   | `amd64`,`arm`,`arm64`等                      |
 | `BUILDVARIANT`   | 构建镜像主机平台的架构类型的子类型           | `v7`,`v6`等                                  |
 
-### 镜像的标签
+#### 跨平台编译镜像
 
-我们上面说了镜像的标签,docker体系下镜像标签不光是一个简单标签,它是有规范的.
+如果我们的编译器不是`running`状态可以使用`docker buildx use {编译器名}`来指定激活编译器.
 
-符合规范的标签大致可以分为如下几种形式:
-
-+ `dockerhub账号/镜像名:版本`
-+ `私有镜像仓库地址/仓库二级目录名/镜像名:版本`
-
-没错,镜像的标签是和镜像分发有关的.需要额外注意的是`版本`,docker镜像中`latest`有特殊地位,它的含义是最新的稳定版本.因此如果拉取镜像时不指定版本那么docker会自动拉取`latest`版本的镜像.
-
-### 将镜像上传至镜像仓库
-
-镜像的分发基本上是依靠镜像仓库的,[docker hub](https://hub.docker.com/)是目前最大的docker镜像公有仓库,免费,注册了就可以用.我们也可以自己搭建私有镜像仓库,这个是下一篇文章的内容.
-
-要上传镜像首先需要登录镜像仓库,无论是共有的还是私有的只要有用户验证的步骤就一定需要先登录.
+在确保我们的编译器是`running`状态时我们可以执行镜像的编译操作:
 
 ```bash
-docker login [-p <密码> -u <用户名>] [私有仓库hostname[:私有仓库端口]]
+docker buildx build --load --platform={指定平台} -t {tag} . 
 ```
 
-如果没有在命令中指定用户名和密码,那么这条命令会进入一个命令行的交互界面让你填这些信息.如果没有指定私有仓库信息,那么这会默认登录dockerhub.
+`docker buildx build`命令类似`docker build`,指定flag`--load`会将编译好的镜像打包到本地.
 
-在登录了镜像仓库后我们就可以上传镜像了.上传镜像的命令形式如下:
+注意`-t`中的tag要标明平台,即`xxxx:arm64-0.0.0`这种形式,以防止镜像覆盖.
 
-```bash
-docker push dockerhub账号/镜像名[:版本]
-```
-
-或者
-
-```bash
-docker push 私有镜像仓库地址/仓库二级目录名/镜像名[:版本]
-```
-
-我们可以指定版本上传也可以不指定,如果不指定,那么将会将每个本地存在的版本的镜像都上传了.
-
-### 镜像拉取和docker hub
-
-除了在`docker-compose.yml`执行时拉取镜像外,我们也可以通过命令`docker pull <镜像标签>`来直接拉取镜像,拉取的镜像会保存在本地.
-
-我们多数时候需要的镜像都是来自于dockerhub,但docker hub毫无疑问的部署在墙外,因此在墙内的我们需要设置镜像站,好在官方(`https://registry.docker-cn.com`),网易(`https://hub-mirror.c.163.com`),和科大(`https://docker.mirrors.ustc.edu.cn/`)都提供了镜像站.
-
-配置方法是修改配置文件中的`registry-mirrors`项:
+需要注意`docker buildx build`命令可能会在拉取镜像的时候报`TLS handshake timeout`错误,可以通过设置docker的配置增大对大文件的支持来缓解:
 
 ```json
 {
-  ...
-  "registry-mirrors": [
-    "https://registry.docker-cn.com",
-    "https://hub-mirror.c.163.com",
-    "https://docker.mirrors.ustc.edu.cn/"
-  ],
-  ...
+  "mtu": 1300
 }
-
 ```
+
+这是因为本质上我们的编译过程是在docker容器中执行的,宿主机网络的mtu一般是1500,而容器中一般会比这个值略小(1450的样子),我们只有将`mtu`参数设置的至少和容器中的一致tls才不容易出错.1300也是一个经验值.
 
 ## 本地镜像管理
 

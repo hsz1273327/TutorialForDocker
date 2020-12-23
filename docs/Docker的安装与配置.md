@@ -146,9 +146,37 @@ Docker在Linux下的配置一般在`/etc/docker/daemon.json`,在Docker Desktop�
 }
 ```
 
+### 设置网络代理
+
+如果我们需要通过docker访问外网,比如push,pull这类操作时,docker自身并没有设置网络代理的功能,但我们可以通过设置`systemctl`来达到这个效果,步骤是:
+
+1. `sudo mkdir -p /etc/systemd/system/docker.service.d` 创建配置用的文件夹
+
+2. `sudo nano /etc/systemd/system/docker.service.d/http-proxy.conf`创建配置,其中这样填
+
+    ```conf
+    [Service]
+    Environment="HTTP_PROXY=http://proxy.example.com:80" # http代理
+    Environment="HTTPS_PROXY=https://proxy.example.com:443" # https代理
+    Environment="NO_PROXY=localhost,127.0.0.1,docker-registry.example.com,.corp" # 不走代理的域名
+    ```
+
+3. 重载docker配置:
+
+    ```bash
+    sudo systemctl daemon-reload
+    sudo systemctl restart docker
+    ```
+
+4. 校验是否设置成功
+
+    ```bash
+    sudo systemctl show --property=Environment docker
+    ```
+
 ## helloworld
 
-按照传统,我们的第一个例子是一个helloworld,我们来演示下docker的最简单使用流程.例子在[python_docker_example](https://github.com/hszofficial/python_docker_example),这个例子所在的仓库也是我们后续文章使用的仓库,这个例子在[helloworld分支](https://github.com/hsz1273327/TutorialForDocker/tree/helloworld).我们用flask构造一个helloworld服务,借助它来直观的感受下docker的使用流程.
+按照传统,我们的第一个例子是一个helloworld,我们来演示下docker的最简单使用流程.例子在[python_docker_example](https://github.com/hszofficial/python_docker_example),这个例子所在的仓库也是我们后续文章使用的仓库,这个例子在[helloworld分支](https://github.com/hsz1273327/TutorialForDocker/tree/example-helloworld).我们用sanic构造一个helloworld服务,借助它来直观的感受下docker的使用流程.
 
 首先确认好你有docker环境.然后我们创建如下文件:
 
@@ -229,7 +257,41 @@ Docker最简单的远程调用方式是启动网络api,我们知道`docker`和`d
 }
 ```
 
+这种情况下我们也要修改下`systemctl`的docker启动配置`/lib/systemd/system/docker.service`,将其中的`Service->ExecStart`修改为如下形式:
+
+```conf
+....
+[Service]
+...
+ExecStart=
+ExecStart=/usr/bin/dockerd
+...
+```
+
+之后执行配置重载和重启docker
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
 这样宿主机tcp协议的2376端口就会监听来自外部的请求了
+
+### 启用tls验证tcp连接
+
+在我们配置好服务的私钥和证书以及ca的证书后,修改配置:
+
+```json
+{
+    "tls": true,
+    "tlscacert": "你的ca证书路径",
+    "tlscert":  "你的服务证书路径",
+    "tlskey":  "你的服务私钥路径",
+    "tlsverify": true
+}
+```
+
+同时注意这种情况下我们就不应该使用`0.0.0.0`作为tcp的hostname了,而应该改用宿主机ip或域名
 
 ### 使用网络api
 
@@ -256,3 +318,4 @@ Docker最简单的远程调用方式是启动网络api,我们知道`docker`和`d
 + 使用不同编程语言的客户端工具,比如[docker-py](https://github.com/docker/docker-py),比如[moby](https://github.com/moby/moby).
 
 这块的例子可以看[官方示例](https://docs.docker.com/engine/api/sdk/examples/)
+
