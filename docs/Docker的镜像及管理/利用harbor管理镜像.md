@@ -567,20 +567,38 @@ services:
 
     dragonfly的客户端需要在所有要用它的机器上部署,其配置文件大致应该是这样:
 
-    + harbor没有使用https
+    + harbor使用了http
 
         ```yml
-        # 设置对docker hub的加速
         registry_mirror:
           remote: https://index.docker.io
           insecure: false
           certs: []
-        dfget_flags: ["--node","mysupernodehost:8002=1","-f","Expires&Signature"]
+        dfget_flags: ["--node","<mysupernodehost>=1","-f","Expires&Signature"]
         proxies:
           # 代理所有经过它代理的拉取镜像的http请求
           - regx: blobs/sha256.*
+        hijack_https:
+          hosts:
+            - regx: <myharbor_host>
+              certs: []
+              insecure: true
         ```
-
+```yml      
+registry_mirror:
+  remote: https://index.docker.io
+  insecure: false
+  certs: []
+dfget_flags: ["--node","172.16.1.78:8002=1","-f","Expires&Signature"]
+proxies:
+  # 代理所有经过它代理的拉取镜像的http请求
+  - regx: blobs/sha256.*
+hijack_https:
+  hosts:
+    - regx: 47.96.235.24:8880
+      certs: []
+      insecure: true
+```
     + harbor使用了https
 
         ```yml
@@ -588,7 +606,7 @@ services:
           remote: https://index.docker.io
           insecure: false
           certs: []
-        dfget_flags: ["--node","mysupernodehost:8002=1","-f","Expires&Signature"]
+        dfget_flags: ["--node","<mysupernodehost>:8002=1","-f","Expires&Signature"]
         proxies:
           # 代理所有经过它代理的拉取镜像的http请求
           - regx: blobs/sha256.*
@@ -597,7 +615,7 @@ services:
           cert: /keys/df.crt
           key: /keys/df.key
           hosts:
-            - regx: myharbor:9443
+            - regx: <myharbor>:9443
         ```
 
         + 创建``
@@ -633,7 +651,7 @@ services:
           remote: https://index.docker.io
           insecure: false
           certs: []
-        dfget_flags: ["--node","mysupernodehost:8002=1","-f","Expires&Signature"]
+        dfget_flags: ["--node","<mysupernodehost></mysupernodehost>:8002=1","-f","Expires&Signature"]
         proxies:
           # 代理所有经过它代理的拉取镜像的http请求
           - regx: blobs/sha256.*
@@ -642,12 +660,12 @@ services:
           cert: /keys/df.crt
           key: /keys/df.key
           hosts:
-            - regx: myharbor:9443
+            - regx: <myharbor></myharbor>:9443
               #如果你的harbor是自己签名的需要将根证书放在这里
               certs: ["ca.crt"]
         ```
 
-2. 部署客户端
+1. 部署客户端
 
 > docker standalone部署
 
@@ -672,7 +690,7 @@ services:
       - "65001:65001"
     volumes:
       - "你的节点数据文件夹位置:/root/.small-dragonfly"
-      - "你的节点配置位置:/etc/dragonfly/dfdaemon-config.yml"
+      - "你的节点配置位置:/etc/dragonfly/dfdaemon.yml"
       - "你的key文件夹:/keys"
 ```
 
@@ -703,7 +721,7 @@ services:
       - "你的节点数据文件夹位置:/root/.small-dragonfly"
     configs:
       - source: dfdaemon-config
-        target: /etc/dragonfly/dfdaemon-config.yml
+        target: /etc/dragonfly/dfdaemon.yml
     secrets:
       - source: dfdaemon-df_key
         target: /keys/df.key
@@ -742,10 +760,12 @@ secrets:
     [Service]
     Environment="HTTP_PROXY=http://127.0.0.1:65001"
     Environment="HTTPS_PROXY=http://127.0.0.1:65001"
-    Environment="NO_PROXY=localhost,127.0.0.1,registry.docker-cn.com,hub-mirror.c.163.com,docker.mirrors.ustc.edu.cn,index.docker.io" # 不走代理的域名
+    Environment="NO_PROXY=localhost,127.0.0.1"
     ```
 
-    之后重启docker
+    + 修改docker配置 无论那种方式都需要将harbor的host加入docker的配置项`insecure-registries`中
+
+    + 之后重启docker
 
     ```bash
     sudo systemctl daemon-reload 
