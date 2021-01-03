@@ -16,18 +16,11 @@ overlay网络是Swarm的默认网络形式.它是一个全功能的虚拟网络,
 version: "3.7"
 services:
   example_go_grpc_grpc_service1:
-    image: hsz/example-go-grpc:0.0.2
-    environment:
-      EXAMPLE_GO_GRPC_ADDRESS: "0.0.0.0:500"
+    image: dev.hszofficial.site:9443/test/hellodocker:0.0.0
+    ports:
+      - "5000:5000"
     deploy:
       mode: global
-    networks:
-      - mynetwork
-
-networks:
-  mynetwork:
-    external: true
-    name: host
 ```
 
 
