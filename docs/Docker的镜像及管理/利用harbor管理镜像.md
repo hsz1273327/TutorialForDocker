@@ -584,21 +584,7 @@ services:
               certs: []
               insecure: true
         ```
-```yml      
-registry_mirror:
-  remote: https://index.docker.io
-  insecure: false
-  certs: []
-dfget_flags: ["--node","172.16.1.78:8002=1","-f","Expires&Signature"]
-proxies:
-  # 代理所有经过它代理的拉取镜像的http请求
-  - regx: blobs/sha256.*
-hijack_https:
-  hosts:
-    - regx: 47.96.235.24:8880
-      certs: []
-      insecure: true
-```
+
     + harbor使用了https
 
         ```yml
@@ -618,7 +604,7 @@ hijack_https:
             - regx: <myharbor>:9443
         ```
 
-        + 创建``
+        + 创建`df.key`
 
             ```bash
             openssl genrsa -des3 -passout pass:<随机4个以上字符的字符串> -out df.pass.key 2048
@@ -665,7 +651,7 @@ hijack_https:
               certs: ["ca.crt"]
         ```
 
-1. 部署客户端
+2. 部署客户端
 
 > docker standalone部署
 
@@ -703,7 +689,7 @@ services:
 然后使用下面的方式部署客户端到整个集群
 
 ```yml
-version: "3.8"
+version: "3.7"
 
 x-log: &default-log
   options:
@@ -718,7 +704,7 @@ services:
     ports:
       - "65001:65001"
     volumes:
-      - "你的节点数据文件夹位置:/root/.small-dragonfly"
+      - "df-client-data:/root/.small-dragonfly"
     configs:
       - source: dfdaemon-config
         target: /etc/dragonfly/dfdaemon.yml
@@ -739,6 +725,9 @@ services:
         delay: 5s
         max_attempts: 3
         window: 100s
+
+volumes:
+  df-client-data:
 
 configs:
   dfdaemon-config:
