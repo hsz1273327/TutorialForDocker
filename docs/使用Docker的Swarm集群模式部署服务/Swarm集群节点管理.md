@@ -17,6 +17,26 @@ sudo docker swarn init
 
 ## 集群添加节点
 
+添加节点到集群需要先从要**加入的集群的manager节点**中获取加入集群的token,根据不同的角色可以得到不同的token,
+
++ 获取作为manager节点的token
+
+    ```bash
+    sudo docker swarm join-token manager
+    ```
+
++ 获取作为worker节点的token
+
+    ```bash
+    sudo docker swarm join-token worker
+    ```
+
+然后在**要加入集群的节点**上执行如下命令即可:
+
+```bash
+sudo docker swarm join --token <token> <manager节点的host>:2377
+```
+
 ## 查看集上的节点状态
 
 操作位置为**任意Manager节点**,命令如下:
@@ -46,6 +66,7 @@ sudo docker node ls
 + worker节点提升为manager节点
 
     操作位置为**任意Manager节点**,命令如下:
+
     ```bash
     sudo docker node promote <nodeid>
     ```
@@ -60,7 +81,17 @@ sudo docker node ls
 
 ## 遣散节点上的服务
 
+在一些情况下(比如要做一些让节点不稳定的操作或者要让节点离开集群)我们会需要先遣散节点上的服务.这只需要**在任意manager节点**改变节点状态即可:
 
+```bash
+sudo docker node update --availability drain <NODE-ID>
+```
+
+类似的,我们也可以让已经处于遣散状态的节点回到可部署状态:
+
+```bash
+sudo docker node update --availability active <NODE-ID>
+```
 
 ## 集群删除节点
 
@@ -73,6 +104,8 @@ sudo docker node ls
     ```bash
     sudo docker swarm leave
     ```
+
+    注意这条命令**对manager节点无效**,因此需要先将manager节点降级未worker节点
 
 2. 在管理节点上删除节点
 
