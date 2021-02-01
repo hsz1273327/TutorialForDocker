@@ -1,2 +1,1 @@
-sanic==20.6.3
-aredis==1.1.8
+watchdog==1.0.2

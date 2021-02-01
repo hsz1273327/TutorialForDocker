@@ -9,8 +9,8 @@ services:
   file_watcher:
     build:
       context: ./app
-      dockerfile: Dockerfile
-
+      dockerfile: Dockerfile_test
+    image: hsz1273327/standalone_colume_nfs:0.0.0
     cpus: 0.8
     mem_limit: 100m
     memswap_limit: 200m
