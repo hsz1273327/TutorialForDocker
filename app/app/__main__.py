@@ -1,4 +1,5 @@
 import time
+from pathlib import Path
 from hashlib import md5
 from typing import Union, Dict
 from watchdog.observers import Observer
@@ -39,6 +40,10 @@ class UpdateIndexes(FileSystemEventHandler):
 
 
 if __name__ == "__main__":
+    print("start")
+    p = Path("/data")
+    for i in p.iterdir():
+        print(str(i))
     observer = Observer()
     fsevent_handler = UpdateIndexes()
     observer.schedule(fsevent_handler, "/data", recursive=True)

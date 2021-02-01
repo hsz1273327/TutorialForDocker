@@ -1,5 +1,4 @@
 version: "2.4"
-
 x-log: &default-log
   options:
     max-size: "10m"
@@ -7,9 +6,9 @@ x-log: &default-log
 
 services:
   file_watcher:
-    build:
-      context: ./app
-      dockerfile: Dockerfile_test
+    # build:
+    #   context: ./app
+    #   dockerfile: Dockerfile_test
     image: hsz1273327/standalone_colume_nfs:0.0.0
     cpus: 0.8
     mem_limit: 100m
