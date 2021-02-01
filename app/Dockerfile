@@ -11,6 +11,6 @@ RUN python -m zipapp -p "/usr/bin/env python3" app
 
 FROM --platform=$TARGETPLATFORM python:3.8.7-alpine as build_img
 WORKDIR /code
-COPY --from=build_bin /code/app/app.pyz /code
+COPY --from=build_bin /code/app.pyz /code
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD [ "curl","-f","http://localhost:5000/ping" ]
 CMD ["python" ,"app.pyz"]
