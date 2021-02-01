@@ -1,0 +1,16 @@
+version: "2.4"
+
+x-log: &default-log
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  iperf3-test:
+    image: hsz1273327/iperf3:3.7
+    network_mode: "host"
+    logging:
+      <<: *default-log
+    command: ["-c", "iperf3-serv_ip","-P", "10"]
+   
+    
