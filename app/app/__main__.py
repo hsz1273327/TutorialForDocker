@@ -2,11 +2,11 @@ import time
 from pathlib import Path
 from hashlib import md5
 from typing import Union, Dict
+from pyloggerhelper import log
 from watchdog.observers import Observer
 from watchdog.events import (
     FileSystemEventHandler,
     FileCreatedEvent,
-    DirCreatedEvent,
     DirModifiedEvent,
     FileModifiedEvent
 )
@@ -33,17 +33,19 @@ class UpdateIndexes(FileSystemEventHandler):
                 if lastmd5:
                     if lastmd5 != nowmd5:
                         self.latest[event.src_path] = nowmd5
-                        print(content)
+                        log.info("get file modified", p=event.src_path, content=content)
                 else:
                     self.latest[event.src_path] = nowmd5
-                    print(content)
+                    log.info("get file modified", p=event.src_path, content=content)
 
 
 if __name__ == "__main__":
-    print("start")
+    log.initialize_for_app(app_name="standalone_colume_nfs", log_level="DEBUG")
+    log.info("start", p="/data")
     p = Path("/data")
+    log.info("there are files", rootdir=str(p), isdir=p.is_dir())
     for i in p.iterdir():
-        print(str(i))
+        log.info(str(i))
     observer = Observer()
     fsevent_handler = UpdateIndexes()
     observer.schedule(fsevent_handler, "/data", recursive=True)
