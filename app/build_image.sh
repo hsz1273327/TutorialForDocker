@@ -1,3 +1,3 @@
-docker buildx build --load --platform=linux/arm/v7 -t hsz1273327/standalone_colume_nfs:armv7-0.0.0 -t hsz1273327/standalone_colume_nfs:armv7-latest .
-docker buildx build --load --platform=linux/arm64 -t hsz1273327/standalone_colume_nfs:arm64-0.0.0 -t hsz1273327/standalone_colume_nfs:arm64-latest .
-docker buildx build --load --platform=linux/amd64 -t hsz1273327/standalone_colume_nfs:amd64-0.0.0 -t hsz1273327/standalone_colume_nfs:amd64-latest .
+docker buildx build --load --platform=linux/arm/v7 -t hsz1273327/standalone_colume_nfs:armv7-0.0.1 -t hsz1273327/standalone_colume_nfs:armv7-latest .
+docker buildx build --load --platform=linux/arm64 -t hsz1273327/standalone_colume_nfs:arm64-0.0.1 -t hsz1273327/standalone_colume_nfs:arm64-latest .
+docker buildx build --load --platform=linux/amd64 -t hsz1273327/standalone_colume_nfs:amd64-0.0.1 -t hsz1273327/standalone_colume_nfs:amd64-latest .

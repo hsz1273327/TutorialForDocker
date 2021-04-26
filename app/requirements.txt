@@ -1,2 +1,2 @@
-watchdog==2.0.2
+watchdog==2.0.3
 pyloggerhelper==0.0.2

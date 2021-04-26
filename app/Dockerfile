@@ -7,9 +7,11 @@ ADD requirements.txt /code/requirements.txt
 RUN python -m pip --no-cache-dir install -r requirements.txt --target app
 RUN rm -rf app/*.dist-info
 ADD app/__main__.py /code/app/__main__.py
-RUN python -m zipapp -p "/usr/bin/env python3" app
+# RUN python -m zipapp -p "/usr/bin/env python3" app
 
 FROM --platform=$TARGETPLATFORM python:3.8.7-alpine as build_img
 WORKDIR /code
-COPY --from=build_bin /code/app.pyz /code
-CMD ["python" ,"app.pyz"]
+# COPY --from=build_bin /code/app.pyz /code
+# CMD ["python" ,"app.pyz"]
+COPY --from=build_bin /code/app/ /code/app/
+CMD ["python" ,"app"]
