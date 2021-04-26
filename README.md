@@ -2,11 +2,13 @@
 
 docker单机环境部署的例子.
 
+使用前提:
+
+1. 有nfs服务器
+2. 宿主机安装了nfs-utils
+
 使用步骤:
 
-**注意这个例子只能在linux下执行**
+1. 外部创建nfs挂载.并命名为`nfssharev3`
 
-> 启动与关闭:
-
-1. 执行`docker-compose up --build -d`构造镜像并执行编排好的服务stack.这样执行`docker logs tutorialfordocker_hellodocker_1`就可以看到服务的log了
-2. 执行`docker-compose down`关闭删除服务stack.,如果要删除镜像,加上参数`--rmi`
+2. 执行compose`docker-compose.yml`,它会监听nfssharev3中挂载的`test`文件夹内的文件变化
