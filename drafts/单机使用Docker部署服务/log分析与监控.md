@@ -21,7 +21,7 @@ docker官方提供的`Fluentd`driver则相对更加实用,我们可以用它配�
 
 而针对宿主机的运行状态数据,我们可以使用[cadvisor](https://github.com/google/cadvisor)来随时观察,同时由于其有RESTful接口,所以也可以用[Prometheus](https://prometheus.io/)监控业务数据,用Grafana做可视化和异常警告.
 
-而针对其他系统组件的运行状态数据,我们就需要去找对应的[exporter](https://prometheus.io/docs/instrumenting/exporters/),有的组件比如envoy自己就带与Prometheus对接的接口
+而针对其他系统组件的运行状态数据,我们就需要去找对应的[exporter](https://prometheus.io/docs/instrumenting/exporters/),有的组件比如envoy自己就带与Prometheus对接的接口.关于监控的目标,个人认为并不需要所有东西都监控,我们主要要监控的就是那些有较高负载的服务,比如redis,比如数据库,而一些没有很高负载的我们可以手动找回的我们没有必要做实时的监控.
 
 而长期的log落库则可以通过定期的将数据导入冷数据仓库(比如对象存储,比如hdfs)中实现
 
@@ -43,7 +43,7 @@ docker官方提供的`Fluentd`driver则相对更加实用,我们可以用它配�
 | 冷数据log归档       | 业务log和系统log | 对象存储或者hdfs                   |
 | 冷数据log分析       | 业务log和系统log | spark或者dask                      |
 
-我们可以每天定时(比如早上2点到3点)从elasticsearch中将前一天的数据使用列存储格式比如`Parquet`保存到对象存储或者hdfs中.然后固定删除30天前的elasticsearch中的数据
+我们可以每天定时(比如早上2点到3点)从elasticsearch中将前一天的数据使用列存储格式比如`Parquet`保存到对象存储或者hdfs中.然后固定删除30天前的elasticsearch中的数据.
 
 ## 业务log的规范
 
@@ -64,30 +64,159 @@ log收集根据部署位置我们可以分为两种:
 1. 宿主机部署,这种情况下就是每台宿主机都要部署一个,一般是用于收集机器资源使用信息,容器的使用状态以及容器中业务log.
 2. 单独部署,这种情况一般用于收集外部有状态服务,比如用于收集redis,pg,hdfs,envoy等的使用指标.这种服务最好是单独一台宿主机部署,如果机器不宽裕可以选择和要收集的服务部署在同一台机器上,如果这都做不到就部署在Prometheus server部署的机器上
 
-
 下面我们就介绍下不同数据的收集
 
 ### 宿主机部署
 
-#### 使用`Fluentd bit`收集业务数据
+> 使用`Fluentd bit`收集业务数据
 
-#### 启动``收集宿主机器资源指标信息
+fluentd bit官方镜像中已经给出了部署方式:
 
-#### 通用的部署stack
++ 部署`fluentd bit`
 
-#### 开启docker的`metrics-addr`用于支持收集容器状态指标
+    ```bash
+    docker run -p 127.0.0.1:24224:24224 fluent/fluent-bit:1.7 
+    ```
+
++ 测试docker的`fluentd driver`
+
+    ```bash
+    docker run --log-driver=fluentd -t ubuntu echo "Testing a log message"
+    ```
+
+> 启动`cadvisor`收集宿主机器资源指标信息
+
+注意cadvisor是监控linux的,因此windows上无法测试.官方给的例子如下
+
+```bash
+docker run \
+--volume=/:/rootfs:ro \
+--volume=/var/run:/var/run:ro \
+--volume=/sys:/sys:ro \
+--volume=/var/lib/docker/:/var/lib/docker:ro \
+--volume=/dev/disk/:/dev/disk:ro \
+--publish=8080:8080 \
+--detach=true \
+--name=cadvisor \
+--privileged \
+--device=/dev/kmsg \
+gcr.io/cadvisor/cadvisor
+```
+
+用它有几个问题:
+
+1. 由于`gcr.io`在墙外难以使用,可以使用dockerhub上的`unibaktr/cadvisor`镜像代替
+2. 官网例子漏了俩要挂在的路径`/etc/machine-id:/etc/machine-id:ro`和`/var/lib/dbus/machine-id:/var/lib/dbus/machine-id:ro`
+3. arm版本(至少是树莓派和JETSONNANO)没有办法监听到cpu的情况
+
+> 通用的部署stack
+
+我们将上面的例子整理成docker-compose
+
++ log-collector.docker-compose.yaml
+
+    ```yaml
+    version: "2.4"
+
+    x-log: &default-log
+        options:
+            max-size: "10m"
+            max-file: "3"
+    services:
+        cadvisor:
+            image: unibaktr/cadvisor:0.37.5
+            logging:
+                <<: *default-log
+            volumes:
+                - "/:/rootfs:ro"
+                - "/var/run:/var/run:ro"
+                - "/sys:/sys:ro"
+                - "/var/lib/docker/:/var/lib/docker:ro"
+                - "/dev/disk/:/dev/disk:ro"
+                - "/etc/machine-id:/etc/machine-id:ro"
+                - "/var/lib/dbus/machine-id:/var/lib/dbus/machine-id:ro"
+            devices:
+                - "/dev/kmsg"
+            ports:
+                - "8080:8080"
+            privileged: true
+
+        fluentd-bit:
+            image: fluent/fluent-bit:1.7
+            logging:
+                <<: *default-log
+            ports:
+                - "24224:24224"
+            command: 
+                - "/fluent-bit/bin/fluent-bit"
+                - "-i"
+                - "forward"
+                - "-o"
+                - "stdout"
+                - "-p"
+                - "format=json_lines"
+                - "-f"
+                - "1"
+    ```
+
+> 开启docker的`metrics-addr`用于支持收集容器状态指标
+
+这是dockerd的一项实验性功能,可以通过启动dockerd时带上参数`--metrics-addr=<host:port>`来启动对docker的监控.虽然这个功能很不错但需要较高版本的docker环境,所以也不用强求.
 
 ### 单独部署
 
-#### 启动``收集redis指标信息
-#### 启动``收集pg指标信息
+> 启动[redis_exporter](https://github.com/oliver006/redis_exporter)收集redis指标信息
 
-#### 单独部署的stack
+```bash
+docker run -d --name redis_exporter -e REDIS_ADDR=redis://localhost:6379 -e REDIS_PASSWORD=pwd -p 9121:9121 oliver006/redis_exporter
+```
 
+> 启动[postgres_exporter](https://github.com/prometheus-community/postgres_exporter)收集pg指标信息
+
+我们需要指定pg的路径
+
+```bash
+docker run \
+  --net=host \
+  -e DATA_SOURCE_NAME="postgresql://postgres:password@localhost:5432/postgres?sslmode=disable" \
+  prometheuscommunity/postgres-exporter
+```
+
+> 单独部署的stack
+
++ exporters.docker-compose.yaml
+
+    ```yaml
+    version: "2.4"
+
+    x-log: &default-log
+        options:
+            max-size: "10m"
+            max-file: "3"
+    services:
+        redis-exporter:
+            image: oliver006/redis_exporter:v1.24.0
+            logging:
+                <<: *default-log
+            ports:
+                - "9121:9121"
+            environment:
+                REDIS_ADDR: redis://192.168.31.212:6379 
+                REDIS_PASSWORD: password
+
+        postgres-exporter:
+            image: prometheuscommunity/postgres-exporter
+            logging:
+                <<: *default-log
+            ports:
+                - "9187:9187"
+            environment:
+                DATA_SOURCE_NAME: postgresql://postgres:password@192.168.31.212:5432/postgres?sslmode=disable
+    ```
 
 ## 使用`Prometheus`收集指标数据
 
-
+Prometheus是目前监控的主流工具,它自带一个时序数据库,
 
 ## 使用`Grafana`监控指标数据
 
