@@ -1,10 +1,10 @@
-# log分析与监控
+# Docker体系下的log分析与监控
 
-本文虽然写在单机部分,但整体架构和使用的工具可以直接扩展到其他集群模式,因此本文所述后面不会再重复,只会针对不同的集群环境有针对性的调整架构.
+Docker无论是单机还是集群,作用都是服务的部署平台.部署平台最重要的就是确保业务健康稳定的运行.因此log分析与监控是基础中的基础.
+
+log的收集,分析,监控虽然不会直接影响部署服务,但会很大程度上影响业务发展和优化的方向,可以说极其有价值.一般来说我们会将log数据当作一般的数据来处理,也就是会按所处生命周期中的不同位置进行不同的处理.
 
 ## log数据的处理思路
-
-log收集虽然不会直接影响部署服务,但会很大程度上影响业务发展和优化的方向,可以说极其有价值.一般来说我们会将log数据当作一般的数据来处理,也就是会按所处生命周期中的不同位置进行不同的处理.
 
 针对log分析和监控这个场景,我们大致可以像下面这样定义数据阶段
 
@@ -78,7 +78,6 @@ docker官方提供的`Fluentd`driver则相对更加实用,我们可以用它配�
 
 1. 不需要精细程度很高的log分析,主要以入库为需求的情况下使用`Fluentd bit`收集处理log,将pg作为output并用于分析,再外接Prometheus用于监控.
 2. 需要精细程度更高的log分析时使用`Fluentd bit`收集处理log,将elasticsearch作为output并用于分析,再外接外接Prometheus用于监控.
-
 
 可以看出基本上`Fluentd`是可选组件,而且基本只在前期过渡用得到,但`Fluentd bit`基本算是必选组件.
 
@@ -413,13 +412,32 @@ docker环境下我们用到的OUTPUT会有`Elasticsearch`,`PostgreSQL`,`Kafka`�
 
 log的存储设置直接决定了如何使用这些log.在业务前期我们可能会觉得维护一套EFK过于沉重,因此可以使用`TimesacleDB`保存数据,直接使用pg体系的工具分析使用log
 
-而如果业务扩大了需要更加细致的
+而如果业务扩大了需要更加细致的分析操作,那么可以使用`Elasticsearch`保存数据,然后用kibana做可视化和分析
 
 ### 落库到`TimesacleDB`(`PostgreSQL`)
 
+[TimescaleDB](https://www.timescale.com/)是pg的一个时序数据库插件,性能不错,适用于LOAP场景.
+
+Fluent bit支持设置Output为`PostgreSQL`,我们可以利用这一特性直接将log落库到TimescaleDB
+
+#### 部署TimescaleDB
+
 #### OUTPUT配置
+
+#### 修改表结构
+
+> 将表改造为Hypertable
+> 为log数据设置索引
+
+
 #### 数据分析
+
+TimescaleDB可以
+
+
 #### 冷数据归档
+
+
 
 ### 落库到`Elasticsearch`
 
