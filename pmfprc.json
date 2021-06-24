@@ -1,0 +1,10 @@
+{
+    "added_components": {
+        "cp_dockerfiles//python_pyz_allinone_dockerfile": "dockerfile",
+        "tp_py_crontab_task//app": "TutorialForDocker/app.py",
+        "tp_py_crontab_task//crontaskscheduler": "TutorialForDocker/crontaskscheduler.py",
+        "tp_py_crontab_task//main": "TutorialForDocker/__main__.py",
+        "tp_py_crontab_task//tasks": "TutorialForDocker/tasks.py"
+    },
+    "env": "venv"
+}
