@@ -349,7 +349,37 @@ harbor提供了手动回收和自动定时回收两种方式,这两种方式都�
 
 #### 镜像安全性检查
 
-如果部署时使用了`--with-clair`标识,那么harbor就会附带镜像安全检测功能.我们使用的[clair](https://github.com/quay/clair)是一个镜像漏洞静态分析工具.它通过对容器的layer进行扫描,发现漏洞并进行预警,其使用数据是基于`Common Vulnerabilities and Exposures`数据库(简称CVE),各Linux发行版一般都有自己的CVE源,而Clair则是与其进行匹配以判断漏洞的存在与否.因为这个原因,clair需要定期的同步数据,这也是为什么在设置中需要设置项`clair.updaters_interval: 12`来定义数据库的同步周期.
+如果部署时使用了`--with-trivy`标识,那么harbor就会附带镜像安全检测功能.我们使用的[trivy](https://github.com/aquasecurity/trivy)是一个镜像漏洞静态分析工具.它通过对容器的layer进行扫描,发现漏洞并进行预警.
+
+需要注意我们要使用它的话需要进行如下配置:
+
+```yml
+trivy:
+  # ignoreUnfixed The flag to display only fixed vulnerabilities
+  ignore_unfixed: false
+  # skipUpdate The flag to enable or disable Trivy DB downloads from GitHub
+  #
+  # You might want to enable this flag in test or CI/CD environments to avoid GitHub rate limiting issues.
+  # If the flag is enabled you have to download the `trivy-offline.tar.gz` archive manually, extract `trivy.db` and
+  # `metadata.json` files and mount them in the `/home/scanner/.cache/trivy/db` path.
+  skip_update: false
+  #
+  # insecure The flag to skip verifying registry certificate
+  insecure: false
+  # github_token The GitHub access token to download Trivy DB
+  #
+  # Anonymous downloads from GitHub are subject to the limit of 60 requests per hour. Normally such rate limit is enough
+  # for production operations. If, for any reason, it's not enough, you could increase the rate limit to 5000
+  # requests per hour by specifying the GitHub access token. For more details on GitHub rate limiting please consult
+  # https://developer.github.com/v3/#rate-limiting
+  #
+  # You can create a GitHub token by following the instructions in
+  # https://help.github.com/en/github/authenticating-to-github/creating-a-personal-access-token-for-the-command-line
+  #
+  github_token: xxxx
+```
+
+其中`github_token`是你github上的用户token,可以参考[这篇文章配置获得](https://docs.github.com/cn/github/authenticating-to-github/keeping-your-account-and-data-secure/creating-a-personal-access-token)
 
 我们可以手动的扫描特定制品,也可以设置定时任务对全仓库的镜像进行扫描,也可以在push完成后立刻对镜像扫描.
 
