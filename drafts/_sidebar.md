@@ -31,7 +31,9 @@
     * [Kubernetes集群网络管理]
     * [Kubernetes集群log收集与管理]
     * [Kubernetes集群服务监控]
-* [使用protainer管理docker环境](使用Portainer管理Docker环境.md)
-* [Docker体系下的log分析与监控](Docker体系下的log分析与监控.md)
+* [使用Docker管理你的项目](使用Docker管理你的项目/README.md)
+    * [使用protainer管理docker环境](使用Docker管理你的项目/使用Portainer管理Docker环境.md)
+    * [Docker体系下的log分析与监控](使用Docker管理你的项目/Docker体系下的log分析与监控.md)
+    * [CICD与Docker](使用Docker管理你的项目/CICD与Docker.md)
 * [结语](结语.md)
 
