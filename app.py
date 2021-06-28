@@ -10,7 +10,7 @@ def applog() -> None:
 
 
 def eventlog() -> None:
-    log.warn("help")
+    log.warn("help", as_event="true")
 
 
 def main() -> None:

@@ -1,0 +1,13 @@
+version: '2.4'
+x-log: &default-log
+  driver: "fluentd"
+  options:
+    tag: "app.{{.Name}}.{{.ID}}"
+services:
+  task:
+    image: hsz1273327/log_example_app:0.0.1
+    logging:
+      <<: *default-log
+    environment:
+      LOG_EXAMPLE_APP_LOG_LEVEL: "INFO"
+    
