@@ -49,3 +49,4 @@ Temporary Items
 env
 .mypy_cache
 bin
+__pycache__
