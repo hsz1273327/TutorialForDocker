@@ -50,3 +50,4 @@ env
 .mypy_cache
 bin
 __pycache__
+.devcontainer
