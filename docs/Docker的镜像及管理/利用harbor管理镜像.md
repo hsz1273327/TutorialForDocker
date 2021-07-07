@@ -349,7 +349,37 @@ harbor提供了手动回收和自动定时回收两种方式,这两种方式都�
 
 #### 镜像安全性检查
 
-如果部署时使用了`--with-clair`标识,那么harbor就会附带镜像安全检测功能.我们使用的[clair](https://github.com/quay/clair)是一个镜像漏洞静态分析工具.它通过对容器的layer进行扫描,发现漏洞并进行预警,其使用数据是基于`Common Vulnerabilities and Exposures`数据库(简称CVE),各Linux发行版一般都有自己的CVE源,而Clair则是与其进行匹配以判断漏洞的存在与否.因为这个原因,clair需要定期的同步数据,这也是为什么在设置中需要设置项`clair.updaters_interval: 12`来定义数据库的同步周期.
+如果部署时使用了`--with-trivy`标识,那么harbor就会附带镜像安全检测功能.我们使用的[trivy](https://github.com/aquasecurity/trivy)是一个镜像漏洞静态分析工具.它通过对容器的layer进行扫描,发现漏洞并进行预警.
+
+需要注意我们要使用它的话需要进行如下配置:
+
+```yml
+trivy:
+  # ignoreUnfixed The flag to display only fixed vulnerabilities
+  ignore_unfixed: false
+  # skipUpdate The flag to enable or disable Trivy DB downloads from GitHub
+  #
+  # You might want to enable this flag in test or CI/CD environments to avoid GitHub rate limiting issues.
+  # If the flag is enabled you have to download the `trivy-offline.tar.gz` archive manually, extract `trivy.db` and
+  # `metadata.json` files and mount them in the `/home/scanner/.cache/trivy/db` path.
+  skip_update: false
+  #
+  # insecure The flag to skip verifying registry certificate
+  insecure: false
+  # github_token The GitHub access token to download Trivy DB
+  #
+  # Anonymous downloads from GitHub are subject to the limit of 60 requests per hour. Normally such rate limit is enough
+  # for production operations. If, for any reason, it's not enough, you could increase the rate limit to 5000
+  # requests per hour by specifying the GitHub access token. For more details on GitHub rate limiting please consult
+  # https://developer.github.com/v3/#rate-limiting
+  #
+  # You can create a GitHub token by following the instructions in
+  # https://help.github.com/en/github/authenticating-to-github/creating-a-personal-access-token-for-the-command-line
+  #
+  github_token: xxxx
+```
+
+其中`github_token`是你github上的用户token,可以参考[这篇文章配置获得](https://docs.github.com/cn/github/authenticating-to-github/keeping-your-account-and-data-secure/creating-a-personal-access-token)
 
 我们可以手动的扫描特定制品,也可以设置定时任务对全仓库的镜像进行扫描,也可以在push完成后立刻对镜像扫描.
 
@@ -357,6 +387,17 @@ harbor提供了手动回收和自动定时回收两种方式,这两种方式都�
 + 手动全部扫描:`系统管理->审查服务->漏洞->开始扫描`
 + 设置push后立刻扫描:`项目->特定项目->配置管理->自动扫描镜像`
 + 设置定时扫描:`系统管理->审查服务->漏洞->定时扫描所有`
+
+查出镜像有安全漏洞也不用焦虑,毕竟docker hub上的镜像80%都是由漏洞的,只要不是严重的漏洞其实也都还好.如果想要彻底避免漏洞基本只有如下几个方式
+
+1. 使用静态语言编写的纯静态可执行文件
+2. 最终镜像中不要包含任何不必要的可执行文件和共享库
+
+这对于多数情况,尤其是以python等解释型语言为主要编程语言的用户来说几乎是不可能达到的.因为很多漏洞都是由于一些构成操作系统的很基础的库造成的,比如glibc,openssl等.因此我们可以将要求适当放宽--在配置的`部署安全`项中设置`阻止危害级别`为`危急`或者直接放开.
+
+如果发现有漏洞,一般来说我们只能等待发现漏洞的库有新版本,好在harbor的安全性检查除了检查漏洞也会检查是否可以修复,当发现可以修复后只要更新有问题的包即可.
+
+
 
 #### 镜像认证
 
@@ -376,7 +417,7 @@ Notary的目标是保证server和client之间的交互使用可信任的连接,�
     + `DOCKER_CONTENT_TRUST=1`:表示开启Docker内容信任模式,这个模式下push/pull操作的目标必须是有签名的.
     + `DOCKER_CONTENT_TRUST_SERVER=xxxxx`:指定认证服务器,harbor中默认就是`4443`端口,注意其格式为`https://xxxx:xxx`
 
-  当设置了这两个参数后我们push镜像时就必须指定tag了,使用`-a`推送全部不会进行签名操作.如果我们在指定了这两个环境变量后希望不进行签名,那么可以在`push`子命令中加入标识`--disable-content-trust`
+    当设置了这两个参数后我们push镜像时就必须指定tag了,使用`-a`推送全部不会进行签名操作.如果我们在指定了这两个环境变量后希望不进行签名,那么可以在`push`子命令中加入标识`--disable-content-trust`
 
 3. 我们可以设置notary为如下值方便管理本地的可信仓库(可选)
 
@@ -561,26 +602,28 @@ services:
 
 ##### 配置客户端
 
-客户端配置相对会麻烦些.
+客户端配置相对会麻烦些.大致可以分为3步:
 
-1. 为每台机器部署客户端
-
-    假设我们使用的是swarm部署的,那么可以利用`mode: global`在其中每台机器上部署,使用`config`来统一客户端配置(`dfdaemon-config`),使用
+1. 为客户端写配置文件
 
     dragonfly的客户端需要在所有要用它的机器上部署,其配置文件大致应该是这样:
 
-    + harbor没有使用https
+    + harbor使用了http
 
         ```yml
-        # 设置对docker hub的加速
         registry_mirror:
           remote: https://index.docker.io
           insecure: false
           certs: []
-        dfget_flags: ["--node","dfsupernode=1","-f","Expires&Signature"]
+        dfget_flags: ["--node","<mysupernodehost>=1","-f","Expires&Signature"]
         proxies:
           # 代理所有经过它代理的拉取镜像的http请求
           - regx: blobs/sha256.*
+        hijack_https:
+          hosts:
+            - regx: <myharbor_host>
+              certs: []
+              insecure: true
         ```
 
     + harbor使用了https
@@ -590,7 +633,7 @@ services:
           remote: https://index.docker.io
           insecure: false
           certs: []
-        dfget_flags: ["--node","dfsupernode=1","-f","Expires&Signature"]
+        dfget_flags: ["--node","<mysupernodehost>:8002=1","-f","Expires&Signature"]
         proxies:
           # 代理所有经过它代理的拉取镜像的http请求
           - regx: blobs/sha256.*
@@ -599,10 +642,10 @@ services:
           cert: /keys/df.crt
           key: /keys/df.key
           hosts:
-            - regx: mysupernodehost:9443
+            - regx: <myharbor>:9443
         ```
 
-        + 创建``
+        + 创建`df.key`
 
             ```bash
             openssl genrsa -des3 -passout pass:<随机4个以上字符的字符串> -out df.pass.key 2048
@@ -635,7 +678,7 @@ services:
           remote: https://index.docker.io
           insecure: false
           certs: []
-        dfget_flags: ["--node","dfsupernode=1","-f","Expires&Signature"]
+        dfget_flags: ["--node","<mysupernodehost></mysupernodehost>:8002=1","-f","Expires&Signature"]
         proxies:
           # 代理所有经过它代理的拉取镜像的http请求
           - regx: blobs/sha256.*
@@ -644,64 +687,102 @@ services:
           cert: /keys/df.crt
           key: /keys/df.key
           hosts:
-            - regx: mysupernodehost:9443
+            - regx: <myharbor></myharbor>:9443
               #如果你的harbor是自己签名的需要将根证书放在这里
               certs: ["ca.crt"]
         ```
 
-    然后使用下面的方式部署客户端到整个集群
+2. 部署客户端
 
-    ```yml
-    version: "3.8"
+> docker standalone部署
 
-    x-log: &default-log
-      options:
-        max-size: "10m"
-        max-file: "3"
+```yml
+version: "2.4"
 
-    services:
-      dfclient:
-        image: hsz1273327/dragonfly-client:1.0.6
-        logging:
-          <<: *default-log
-        ports:
-          - "65001:65001"
-        volumes:
-          - "你的节点数据文件夹位置:/root/.small-dragonfly"
-        configs:
-          - source: dfdaemon-config
-            target: /etc/dragonfly/dfdaemon-config.yml
-        secrets:
-          - source: dfdaemon-df_key
-            target: /keys/df.key
-          - source: dfdaemon-df_crt
-            target: /keys/df.crt
+x-log: &default-log
+  options:
+    max-size: "10m"
+    max-file: "3"
 
-        deploy:
-          mode: global
-          resources:
-            limits:
-              cpus: '0.5'
-              memory: 200M
-          restart_policy:
-            condition: on-failure
-            delay: 5s
-            max_attempts: 3
-            window: 100s
+services:
+  dfclient:
+    image: hsz1273327/dragonfly-client:1.0.6
+    logging:
+      <<: *default-log
+    cpus: 0.8
+    mem_limit: 100m
+    memswap_limit: 200m
+    restart: on-failure
+    ports:
+      - "65001:65001"
+    volumes:
+      - "你的节点数据文件夹位置:/root/.small-dragonfly"
+      - "你的节点配置位置:/etc/dragonfly/dfdaemon.yml"
+      - "你的key文件夹:/keys"
+```
 
+/home/hsz/workspace/docker_deploy
+
+> swarm部署
+
+我们可以利用`mode: global`在其中每台机器上部署,使用`config`来统一客户端配置(`dfdaemon-config`),使用
+
+然后使用下面的方式部署客户端到整个集群
+
+```yml
+version: "3.7"
+
+x-log: &default-log
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  dfclient:
+    image: hsz1273327/dragonfly-client:1.0.6
+    logging:
+      <<: *default-log
+    ports:
+      - "65001:65001"
+    volumes:
+      - "df-client-data:/root/.small-dragonfly"
     configs:
-      dfdaemon-config:
-        external: true
-
+      - source: dfdaemon-config
+        target: /etc/dragonfly/dfdaemon.yml
     secrets:
-      dfdaemon-df_key:
-        external: true
-      dfdaemon-df_crt:
-        external: true
+      - source: dfdaemon-df_key
+        target: /keys/df.key
+      - source: dfdaemon-df_crt
+        target: /keys/df.crt
 
-    ```
+    deploy:
+      mode: global
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 200M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 100s
 
-2. 为每台机器设置http代理
+volumes:
+  df-client-data:
+
+configs:
+  dfdaemon-config:
+    external: true
+
+secrets:
+  dfdaemon-df_key:
+    external: true
+  dfdaemon-df_crt:
+    external: true
+
+```
+
+1. 为每台机器设置http代理
 
     + `/etc/systemd/system/docker.service.d/http-proxy.conf`
 
@@ -709,10 +790,12 @@ services:
     [Service]
     Environment="HTTP_PROXY=http://127.0.0.1:65001"
     Environment="HTTPS_PROXY=http://127.0.0.1:65001"
-    Environment="NO_PROXY=localhost,127.0.0.1,registry.docker-cn.com,hub-mirror.c.163.com,docker.mirrors.ustc.edu.cn,index.docker.io" # 不走代理的域名
+    Environment="NO_PROXY=localhost,127.0.0.1"
     ```
 
-    之后重启docker
+    + 修改docker配置 无论那种方式都需要将harbor的host加入docker的配置项`insecure-registries`中
+
+    + 之后重启docker
 
     ```bash
     sudo systemctl daemon-reload 

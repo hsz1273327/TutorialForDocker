@@ -12,6 +12,17 @@ macvlan网路需要每个实例指定ip因此非常的不好用.这里也就不�
 
 overlay网络是Swarm的默认网络形式.它是一个全功能的虚拟网络,自带服务注册,服务发现,负载均衡.
 
+```yml
+version: "3.7"
+services:
+  example_go_grpc_grpc_service1:
+    image: dev.hszofficial.site:9443/test/hellodocker:0.0.0
+    ports:
+      - "5000:5000"
+    deploy:
+      mode: global
+```
+
 
 ### 端口映射使用`host`模式提高io性能
 
