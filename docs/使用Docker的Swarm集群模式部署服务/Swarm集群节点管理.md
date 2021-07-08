@@ -37,7 +37,17 @@ sudo docker swarn init
 sudo docker swarm join --token <token> <manager节点的host>:2377
 ```
 
-## 查看集上的节点状态
+需要注意要给集群添加节点需要如下端口可以相互访问:
+
+| 端口   | 协议     | 开放位置 | 说明                            |
+| ------ | -------- | -------- | ------------------------------- |
+| `2376` | tcp      | all      | docker客户端与dockerd间交互     |
+| `2377` | tcp      | manager  | swarm节点间交互                 |
+| `7946` | tcp和udp | all      | 用于网络服务发现                |
+| `4789` | udp      | all      | overlay网络覆盖流量             |
+| `50`   | tcp和udp | all      | 如果overlay网络使用了加密则需要 |
+
+## 查看集群上的节点状态
 
 操作位置为**任意Manager节点**,命令如下:
 
@@ -114,3 +124,27 @@ sudo docker node update --availability active <NODE-ID>
     ```bash
     sudo docker node rm <nodeid>
     ```
+
+## 节点更新docker
+
+swarm集群只要还有一个主节点正常运行,其他节点即便重启也可以很快重新连入集群,因此更新每个节点上的docker只需要保证同一时间至少有一个主节点运行即可.
+
+## 节点信息
+
+swarm节点有如下固定的属性信息:
+
+| 属性                  | 说明                                                  | 例子                                          |
+| --------------------- | ----------------------------------------------------- | --------------------------------------------- |
+| `node.id`             | 节点id                                                | `node.id==2ivku8v2gvtg4`                      |
+| `node.hostname`       | 节点hostname                                          | `node.hostname=node-2`                        |
+| `node.role`           | 节点角色                                              | `node.role==manager`                          |
+| `node.platform.os`    | 节点操作系统                                          | `node.platform.os==windows`                   |
+| `node.platform.arch`  | 节点指令集                                            | `node.platform.arch==x86_64`                  |
+| `engine.labels.<key>` | docker引擎维护的标签信息,在配置文件的`labels`字段维护 | `engine.labels.operatingsystem==ubuntu 14.04` |
+
+除了上面这些信息外我们也可以自定义节点的标签,其位置为`node.labels.<key>`,我们可以使用命令`docker node update --label-add <key>=<value> <node>`添加标签.
+用`docker node update --label-rm <key> <node>`删除标签,用`docker node inspect`查看节点信息时顺便就查看节点标签.
+
+如果使用portainer管理集群的话其中`swarm`下也可以直接在界面上管理节点标签.
+
+节点的上述信息都可以用于在分发容器时按条件分配部署节点.这个后面介绍服务部署时再详细介绍.

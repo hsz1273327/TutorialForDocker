@@ -5,7 +5,7 @@
 + `secrets`用于保存和共享密钥
 + `configs`用于保存配置
 
-而其他更加通用的数据我们则需要借助单机环境下就有的`volume`来实现.
+而其他更加通用的数据我们则需要借助单机环境下就有的`volume`通过nfs来实现.而如果使用`bind`模式或者普通`volume`则只是映射使用宿主机的硬盘资源而已.而且即便是使用nfs也是需要在每台部署的宿主机上都创建,因此在swarm模式下`volume`更多的在stack中定义而非在外部定义以方便管理销毁.
 
 ## 使用Swarm集群管理密钥
 
@@ -22,7 +22,11 @@
 + 内部服务器信息
 + 通用的字符串或二进制内容 (最大可达 500 Kb)
 
-##### secrets的操作
+一般来说`Secret`都是现在外部定义好,然后再在部署时引用的.
+
+如果你使用Portainer管理swarm集群的话更加建议使用其中的`Secrets`页面进行管理配置.
+
+### secrets的操作
 
 + 创建Secret,通常我们都是通过文件创建secret对象的.
 
@@ -76,9 +80,45 @@ docker secret inspect [参数] SECRET [SECRET...]
 | `-f` | `--format` | ---    | GO模板转化             |
 | ---  | `--pretty` | ---    | 以人性化的格式打印信息 |
 
-##### 在配置中使用secret
+### 在配置中使用secret
 
-secret可以当做就是一个文件,它的路径默认在`/run/secrets/[secret]`上所以只要拿这个地址放在配置中相应的位置即可.
+secret可以当做就是一个文件,它的路径默认在`/run/secrets/[secret]`上所以只要拿这个地址放在配置中相应的位置即可.如果需要为secret在容器中换个名字,可以在compose中通过定义`service`中的`secrets`来引用,当然了要用先要在外部声明
 
-顺道一提,docker同样提供了`configs`用于管理配置文件,但nginx的配置文件比较特殊不建议使用这个管理,因为nginx换个配置文件做的事情就完全不一样了和代码其实是差不多的不是传统意义上的配置.
-`config`无法做到版本管理,所以建议还是讲它的配置文件放入镜像,拿label管理好版本.
+```yaml
+version: "3.8"
+services:
+  redis:
+    ...
+    secrets:
+      - source: my_secret
+        target: <name in container>
+secrets:
+  my_secret:
+    external: true
+    
+```
+
+## 使用Swarm集群管理配置
+
+docker同样提供了`configs`用于管理配置文件,它和`secrets`非常相似,各种操作只要把`secret`改成`config`就行.下面是一个使用的例子:
+
+```yaml
+version: "3.8"
+...
+services:
+  fluentd-bit:
+    ...
+    configs:
+      - source: fluent-bit-conf
+        target: /fluent-bit/etc/fluent-bit.conf
+      - source: docker_parser-conf
+        target: /fluent-bit/etc/docker_parser.conf
+
+configs:
+  fluent-bit-conf:
+    external: true
+  docker_parser-conf:
+    external: true
+```
+
+和`secrets`不同之处只在于`configs`的`target`可以指定容器中的路径
