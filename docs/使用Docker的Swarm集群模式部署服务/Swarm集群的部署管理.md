@@ -44,7 +44,7 @@ deploy:
 
 ## 重启策略设置
 
-在`v3`版本中重启策略相关的设置项被移动到了`deploy`字段下的`restart_policy`字段下,且只能在swarm模式下生效.其形式如下:
+在`v3`版本中重启策略相关的设置项被移动到了`deploy`字段下的`restart_policy`字段下,且只能在swarm模式下生效,在swarm模式下`restart`字段不会生效.其形式如下:
 
 ```yml
 ...

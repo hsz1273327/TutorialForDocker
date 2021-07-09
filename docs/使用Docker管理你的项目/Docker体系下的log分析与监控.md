@@ -196,17 +196,31 @@ services:
     image: fluent/fluent-bit:1.7
     logging:
       <<: *default-log
-    ports:
-      - "24224:24224"
     environment:
       HOST: '{{ .Node.Hostname }}.{{ .Node.ID }}'
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      - mynetwork
     configs:
       - source: fluent-bit-conf
         target: /fluent-bit/etc/fluent-bit.conf
-      - source: docker_parser-conf
+      - source: fluent-docker_parser-conf
         target: /fluent-bit/etc/docker_parser.conf
+    deploy:
+      mode: global
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 50M
+        reservations:
+          cpus: '0.25'
+          memory: 20M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
     command:
       - "/fluent-bit/bin/fluent-bit"
       - "-c"
@@ -215,8 +229,13 @@ services:
 configs:
   fluent-bit-conf:
     external: true
-  docker_parser-conf:
+  fluent-docker_parser-conf:
     external: true
+
+networks:
+  mynetwork:
+    external: true
+    name: host
 ```
 
 与之对应的swarm下部署应用项目的log配置为:

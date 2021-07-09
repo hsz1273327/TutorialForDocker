@@ -44,6 +44,21 @@ portainer支持docker本地安装,docker swarm集群安装,以及k8s集群安装
     portainer/portainer-ce --ssl --sslcert /certs/portainer.crt --sslkey /certs/portainer.key
     ```
 
+安装完成后我们进入其中(默认9000端口)会看到如下页面
+
+![进入portainer](../IMGS/portainer-main.PNG)
+
+其中`Home`就是当前页面
+
+`SETTINGS`下面则是这个portainer下的管理设置.其中
+
++ `Users`用于管理可以登录这个portainer的用户,我们不止可以在其中注册用户也可以设置用户组用于分群管理,不过用户权限设置是portainer企业版的功能,社区版没有.
++ `Endpoints`用于添加和管理端点,所谓端点就是我们维护的docker执行环境.我们可以在其中添加单机docker,docker swarm集群或者k8s集群用于管理.同时可以为集群打上标签或者分群管理.根据安装的方式不同,我们会默认将宿主环境添加到其中作为第一个端点(默认命名为`primary`)
++ `Registries`用于保存使用的镜像仓库信息,默认情况下我们只能拉取docker hub上的镜像,如果要使用私有镜像仓库,我们需要将其连同登录信息注册到这里
++ `Settings`则是其他一些设置,主要是认证信息等,一般默认就行.如果我们要使用edge agent模式添加端点,建议将`Enable edge compute features`打开
+
+而其他的侧边栏则是当前使用的Endpoint的管理选项.由于我已经将宿主机代表的端点改名为`local`,所以侧边的标题就成了local.其中的各个标签作用我们在后面单独按情况介绍
+
 ## 添加端点
 
 我们用portainer主要是添加3类端点:
@@ -67,29 +82,47 @@ portainer支持docker本地安装,docker swarm集群安装,以及k8s集群安装
 
 portainer的使用主要看管理的是什么docker环境以及用的哪种方式部署,其中可以分为如下情况
 
-情况编号|部署方式|docker执行环境
----|---|---
-1|远程单机/local|docker
-2|agent|docker swarm
-3|edge agent|docker和docker swarm
-4|agent|k8s
+| 情况编号 | 部署方式       | docker执行环境                  |
+| -------- | -------------- | ------------------------------- |
+| 1        | 远程单机/local | docker standalone               |
+| 2        | agent          | docker swarm                    |
+<!-- | 3        | edge agent     | docker standalone和docker swarm |
+| 4        | agent          | k8s                             | -->
 
 下面我们来详细介绍这几种情况的使用
 
 ### 情况1
 
+在远程单机或者本地单机的情况下portainer的管理页面包括:
+
++ `Dashboard`用于描述当前端点的概况,我们可以一目了然的看到当宿主机的cpu和内存情况,以及服务的部署情况等
++ `App Template`用于保存和维护docker standalone和docker swarm下的docker-compose.yml模板.
++ `Stacks`用于维护部署中的`stack`.
++ `Container`用于维护部署中的容器
++ `Images`用于维护当前宿主机上存在的镜像
++ `Networks`用于维护当前docker中创建的network
++ `Volumes`用于维护当前docker挂载的存储资源,通常nfs设置也在这边
++ `Events`用于查看当前docker发出的event
++ `Host`用于查看当前宿主机详细情况
+
 在远程单机或者本地单机的情况下部署分为`stack`和`contaners`两级.在单机情况下确实`service`一级逻辑十分简单,所以portainer省略了这一级,这两级都可以用于部署容器,但一般还是在`stack`一级部署容器会更容易管理些.
 
-`stack`页面使用的是v2版本的docker-compose来部署.但需要注意stack的更新并不会重新拉取镜像,只有在`images`中重新拉取了镜像后remove掉执行中的容器后重新部署才会更新镜像.
+![stack管理页面](../IMGS/portainer-standalone-stack.PNG)
 
-这种模式下我们可以管的东西最少:
+`stack`中的docker-compose内容在`Editor`子页面,使用的是v2版本的docker-compose来部署(新版本似乎支持v3了但我个人依然不推荐),我们可以更改后点击`Update the stack`来更新这个stack.需要注意stack的更新并不会重新拉取镜像,只有在`Images`中重新拉取了镜像后remove掉执行中的容器后重新部署才会更新镜像.
 
-1. 可以在`Host`页面查看宿主机资源,
-2. 可以在`Networks`页面查看和管理网络资源
-3. 可以在`Volumes`页面可以查看和管理挂载的存储资源,通常nfs设置也在这边
+而如果你希望将这个stack的部署的内容也部署到其他端点,可以使用这个页面中显示的`Stack duplication / migration`下面的选项实现.
 
+在页面底部是这个stack下的容器的列表,我们可以选中要操作的容器直接在这个页面下操作,也可以直接点击容器中的四个小按钮进行一些常用操作
+
++ `文件图标`: 查看容器log
++ `感叹号图标`: 查看容器状态
++ `图表图标`: 观察容器资源占用
++ `命令行图标`: 连接容器命令行
 
 ### 情况2
+
+使用agent部署docker swarm的情况
 
 <!-- 
 ### 情况3 -->
