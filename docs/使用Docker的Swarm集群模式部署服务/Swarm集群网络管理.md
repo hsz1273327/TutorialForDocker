@@ -54,48 +54,71 @@ host网络要用好相当于要将服务注册服务发现以及负载均衡挂�
 
 overlay网络是Swarm的默认网络形式.它是一个全功能的虚拟网络,自带服务注册,服务发现,负载均衡.
 
-部署服务的时候我们可以使用`deploy.endpoint_mode`选择overlay网络的负载均衡器有两种模式:
+部署服务的时候我们可以使用`deploy.endpoint_mode`选择overlay网络的负载均衡器,它有两种模式:
 
 1. vip(虚拟ip)模式,
-2. dnsrr(dns轮询)模式,这种模式在docker内部将会将service的名字和所有容器的内部ip绑定,当docker内部其他服务使用service的名字作为hostname访问它时,访问方将会以轮询的方式返回一个容器的ip.这种模式下无法暴露出端口也无法让外部直接访问到服务.必须通过一个docker内部部署的负载均衡服务来提供外网访问.
+2. dnsrr(dns轮询)模式
 
 ### vip模式
 
 vip(虚拟ip)模式,这种模式在docker内部将同一个service下的所有容器的ip都聚合为一个虚拟ip,当docker内部其他服务使用service的名字作为hostname访问它时,访问方将会获得这个虚拟ip,而这个虚拟ip会负责在同一service下的所有容器种分发请求流量.这种模式可以使用`ports`开放端口给外部使用.
 
+![vip模式负载均衡结构](../IMGS/vip.webp)
+
+vip模式的优点是无论服务是否伸缩,其他容器访问它的ip都是一样的.
+
 #### 开放端口的模式
 
 `ports`可以使用`ports[i].mode`设置开放端口的模式.有两种模式:
 
-> `ingress`模式(默认),一旦开放后可以保证从swarm集群内任一节点(即使没有运行服务的副本)都能访问该服务.
+> `host`模式,一旦开放后服务只能通过运行服务副本的节点来访问,且只由宿主机上的实例处理,docker相当于对外只做一层端口映射.
+
+> `ingress`模式(默认),使用`Routing mesh`管理外部访问的流量.一旦开放后可以保证从swarm集群内任一节点(即使没有运行服务的副本)都能访问该服务,外部访问会.
+
+![两种模式的区别](../IMGS/ingress_vs_host.gif)
+
+在`ingress`模式下外部访问服务的请求会像下图这样走
 
 ![外部通过ingress模式访问服务](../IMGS/ingress.gif)
 
-> `host`模式,一旦开放后服务只能通过运行服务副本的节点来访问.
+构造`Routing mesh`的是`ingress`层,它负责导流,端口映射,和负载均衡.一旦有请求过来`ingress`层会将它们导给不同的的容器处理.
 
-![外部通过host模式来访问服务](../IMGS/host.gif)
+![外部通过host模式来访问服务](../IMGS/ingress_lb.gif)
 
-从图中就可以看出host模式绕过了ingress层在节点间的中转直接通过vip访问服务,因此一般来说host模式性能会比ingress模式好些,但问题也有,就是外部必须知道哪些节点上有部署服务,因此一般host模式的overlay网络都是配合global模式的部署方式使用的.
+host模式绕过了ingress层在节点间的中转直接访问服务,因此一般来说host模式性能会比ingress模式好些,但问题也有,就是外部必须知道哪些节点上有部署服务,因此一般host模式的overlay网络都是配合global模式的部署方式使用的.
 
 ### dnsrr模式
 
-1. vip(虚拟ip)模式,
-2. dnsrr(dns轮询)模式,这种模式在docker内部将会将service的名字和所有容器的内部ip绑定,当docker内部其他服务使用service的名字作为hostname访问它时,访问方将会以轮询的方式返回一个容器的ip.这种模式下无法暴露出端口也无法让外部直接访问到服务.必须通过一个docker内部部署的负载均衡服务来提供外网访问.
+dnsrr(dns轮询)模式,这种模式在docker内部将会启用一个dns服务器将service的名字和所有容器的内部ip绑定,当docker内部其他服务使用service的名字作为hostname访问它时,访问方将会以轮询的方式返回一个容器的ip.这种模式下无法暴露出端口也无法让外部直接访问到服务.必须通过一个docker内部部署的反向代理服务来提供外网访问.
 
-
-
-
-
+这种方式由于没有了vip层所以性能会比vip模式好一些.但我们就不得不自己搭一层反向代理用于暴露端口给外部使用了
 
 ## 网络性能测试
 
 这个部分我们使用3台8g版本树莓派4b构建warm集群.一台2015款macbook air作为外部机器来做这个实验
 
-下面是几种情况下的bechmark
+下面是几种情况下的bechmark.
 
-| 客户端位置  | 服务端位置                                                             | qps |
-| ----------- | ---------------------------------------------------------------------- | --- |
-| macbook air | 全部部署在单节点的overlay网络,3个实例                                  |
-| macbook air | global方式部署在各个节点的overlay网络,3个实例                          |
-| macbook air | global方式部署在各个节点,且使用host模式开放端口的的overlay网络,3个实例 |
-| macbook air | global方式部署在各个节点的host网络,3个实例                             |
+### 内部访问性能
+
+我们测试下多实例下带上负载均衡后的性能对比.这里我们就用之前做的helloword服务作为例子,看看docker内部在实际使用中各种方案的性能损失
+
+| 模式       | proxy模式           | 服务实例数 | qps |
+| ---------- | ------------------- | ---------- | --- |
+| `vip`      | ---                 | 3          | --- |
+| `dnsrr`    | ---                 | 3          | --- |
+| `host net` | `nginx in host net` | 3          | --- |
+
+### 外部访问性能
+
+首先我们依然用之前做的helloword服务模拟下真实情况下的性能损失
+
+| 模式            | proxy模式           | 服务实例数 | qps |
+| --------------- | ------------------- | ---------- | --- |
+| `vip`+`ingress` | ---                 | 3          | --- |
+| `vip`+`host`    | `nginx in host net` | 3          | --- |
+| `dnsrr`         | `vip`+`ingress`     | 3          | --- |
+| `dnsrr`         | `vip`+`host`        | 3          | --- |
+| `dnsrr`         | `nginx in host net` | 3          | --- |
+| `host net`      | `nginx in host net` | 3          | --- |
+
