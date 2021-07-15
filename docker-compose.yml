@@ -6,43 +6,17 @@ x-log: &default-log
     max-file: "3"
 
 services:
-  db-redis:
-    image: redis
-    logging:
-      <<: *default-log
-    
-    volumes:
-      - ""
-
-
-  hellodocker:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
-    image: hsz1273327/hellodocker:0.0.1
-    environment:
-      HELLO_DOCKER_REDIS_URL: redis://localhost?db=0 #redis://db-redis?db=0
-      HELLO_DOCKER_HOST: 0.0.0.0
-      HELLO_DOCKER_PORT: 3000
-    labels:
-      - "hsz.hsz.image=hellodocker"
-      - "hsz.hsz.desc=hello docker with get/set foo in redis"
-    command: ["./wait-for-it.sh", "db-redis:6379", "--", "python", "app.py"]
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/ping"]
-      interval: 1m30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+  hello-jetson:
+    image: nvcr.io/nvidia/l4t-tensorflow:r32.5.0-tf2.3-py3
+    runtime: nvidia
     cpus: 0.8
     mem_limit: 100m
     memswap_limit: 200m
     restart: on-failure
-    depends_on:
-      db-redis:
-        condition: service_started
     logging:
       <<: *default-log
-    ports:
-      - "3000:3000"
+    command: 
+      - python3
+      - -c
+      - "import tensorflow as tf;print(tf.config.list_physical_devices('GPU'));"
  
