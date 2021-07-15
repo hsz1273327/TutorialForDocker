@@ -1,0 +1,1 @@
+docker buildx build --push --platform=linux/arm64 -t hsz1273327/hello-video:0.0.1 . 
