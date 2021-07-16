@@ -97,30 +97,16 @@ dnsrr(dns轮询)模式,这种模式在docker内部将会启用一个dns服务器
 
 ## 网络性能测试
 
-这个部分我们使用3台8g版本树莓派4b构建warm集群.一台2015款macbook air作为外部机器来做这个实验
+这个部分我们使用3台8g版本树莓派4b构建warm集群.一台2015款macbook air作为外部机器来做这个实验,外部可访问的位置固定为ResPiNode1的5000端口
 
-下面是几种情况下的bechmark.
+我们依然用之前做的helloword服务模拟下真实情况下的性能损失
 
-### 内部访问性能
-
-我们测试下多实例下带上负载均衡后的性能对比.这里我们就用之前做的helloword服务作为例子,看看docker内部在实际使用中各种方案的性能损失
-
-| 模式       | proxy模式           | 服务实例数 | qps |
-| ---------- | ------------------- | ---------- | --- |
-| `vip`      | ---                 | 3          | --- |
-| `dnsrr`    | ---                 | 3          | --- |
-| `host net` | `nginx in host net` | 3          | --- |
-
-### 外部访问性能
-
-首先我们依然用之前做的helloword服务模拟下真实情况下的性能损失
-
-| 模式            | proxy模式           | 服务实例数 | qps |
-| --------------- | ------------------- | ---------- | --- |
-| `vip`+`ingress` | ---                 | 3          | --- |
-| `vip`+`host`    | `nginx in host net` | 3          | --- |
-| `dnsrr`         | `vip`+`ingress`     | 3          | --- |
-| `dnsrr`         | `vip`+`host`        | 3          | --- |
-| `dnsrr`         | `nginx in host net` | 3          | --- |
-| `host net`      | `nginx in host net` | 3          | --- |
+| 模式            | proxy模式           | 服务实例数 | 内网 qps | 外网qps |
+| --------------- | ------------------- | ---------- | -------- | ------- |
+| `vip`+`ingress` | ---                 | 3          | ---      | ---     |
+| `vip`+`host`    | `nginx in host net` | 3          | ---      | ---     |
+| `dnsrr`         | `vip`+`ingress`     | 3          | ---      | ---     |
+| `dnsrr`         | `vip`+`host`        | 3          | ---      | ---     |
+| `dnsrr`         | `nginx in host net` | 3          | ---      | ---     |
+| `host net`      | `nginx in host net` | 3          | ---      | ---     |
 
