@@ -1,0 +1,24 @@
+version: "3.7"
+services:
+  nginx:
+    image: nginx
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - "node.hostname==RaspPiNode1"
+    ports:
+      - "5001:5001"
+    configs:
+      - source: nginx-conf
+        target: /etc/nginx/nginx.conf
+
+  helloworld:
+    image: hsz1273327/hellodocker-go:0.0.0
+    deploy:
+      endpoint_mode: dnsrr
+      mode: global
+    
+configs:
+  nginx-conf:
+    external: true

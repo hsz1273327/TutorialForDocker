@@ -2,24 +2,22 @@ version: "3.7"
 services:
   nginx:
     image: nginx
-    ports:
-      - mode: host
-        protocol: tcp
-        published: 5001
-        target: 5001
     deploy:
       mode: global
       placement:
         constraints:
           - "node.hostname==RaspPiNode1"
+    networks:
+      - mynetwork
     configs:
       - source: nginx-conf
         target: /etc/nginx/nginx.conf
 
   helloworld:
     image: hsz1273327/hellodocker-go:0.0.0
+    networks:
+      - mynetwork
     deploy:
-      endpoint_mode: dnsrr
       mode: global
     
 configs:

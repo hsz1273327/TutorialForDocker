@@ -1,6 +1,6 @@
 version: "3.7"
 services:
-  nginx:
+  proxy:
     image: nginx
     ports:
       - mode: host
@@ -19,13 +19,19 @@ services:
   helloworld:
     image: hsz1273327/hellodocker-go:0.0.0
     deploy:
-      endpoint_mode: dnsrr
+      endpoint_mode: vip
       mode: global
+
+  test_helloworld:
+    image: hsz1273327/ab:0.0.0
+    command: 
+      - "-c"
+      - "25"
+      - "-n"
+      - "10000"
+      - http://helloworld:5000/
     
 configs:
   nginx-conf:
     external: true
-networks:
-  mynetwork:
-    external: true
-    name: host
+

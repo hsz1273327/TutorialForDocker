@@ -1,0 +1,19 @@
+version: "3.7"
+services:
+  helloworld:
+    image: hsz1273327/hellodocker-go:0.0.0
+    deploy:
+      endpoint_mode: vip
+      mode: global
+    ports:
+      - "5001:5000"
+
+  test_helloworld:
+    image: hsz1273327/ab:0.0.0
+    command: 
+      - "-c"
+      - "25"
+      - "-n"
+      - "10000"
+      - http://helloworld:5000/
+    

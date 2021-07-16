@@ -1,0 +1,1 @@
+docker buildx build --push --platform=linux/amd64,linux/arm64 -t hsz1273327/ab:0.0.0 -t hsz1273327/ab:latest . 
