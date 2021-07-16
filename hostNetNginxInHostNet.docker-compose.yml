@@ -1,6 +1,6 @@
 version: "3.7"
 services:
-  nginx:
+  proxy:
     image: nginx
     deploy:
       mode: global

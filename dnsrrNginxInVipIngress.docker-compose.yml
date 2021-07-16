@@ -1,17 +1,14 @@
 version: "3.7"
 services:
-  nginx:
+  proxy:
     image: nginx
-    ports:
-      - mode: host
-        protocol: tcp
-        published: 5001
-        target: 5001
     deploy:
       mode: global
       placement:
         constraints:
           - "node.hostname==RaspPiNode1"
+    ports:
+      - "5001:5001"
     configs:
       - source: nginx-conf
         target: /etc/nginx/nginx.conf
@@ -21,11 +18,16 @@ services:
     deploy:
       endpoint_mode: dnsrr
       mode: global
+
+  test_helloworld:
+    image: hsz1273327/ab:0.0.0
+    command: 
+      - "-c"
+      - "25"
+      - "-n"
+      - "10000"
+      - http://helloworld:5000/
     
 configs:
   nginx-conf:
     external: true
-networks:
-  mynetwork:
-    external: true
-    name: host
