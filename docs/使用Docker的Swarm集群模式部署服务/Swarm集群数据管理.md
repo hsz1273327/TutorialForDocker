@@ -121,4 +121,4 @@ configs:
     external: true
 ```
 
-和`secrets`不同之处只在于`configs`的`target`可以指定容器中的路径
+和`secrets`不同之处只在于`configs`的`target`可以指定容器中的路径.
