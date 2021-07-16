@@ -76,18 +76,18 @@ portainer支持docker本地安装,docker swarm集群安装,以及k8s集群安装
 + edge agent模式
 
     这种模式主要是为边缘计算设计的,它和agent模式的主要区别是edge agent模式管理的单机或者集群并不需要portainer的宿主机可以访问到,只要部署为`edge agent`的机器可以访问到portainer即可.因此一般用这种模式管理其他内网内的集群.比如我们在成都分公司有一个swarm集群,南京分公司有一个swarm集群,深圳分公司也有一个swarm集群,这些集群都部署在公司内网且这些内网并没有相互大打通,那么如果我们希望在北京总部统一管理这些swarm集群就可以使用edge agent模式.
-    edge agent模式目前支持单机docker环境和swarm环境
+    edge agent模式目前支持单机docker环境,swarm环境和k8s环境,它甚至支持windows下的docker和swarm环境,不过需要部署portainer的机器对外网开放8000端口.
 
 ## 使用
 
 portainer的使用主要看管理的是什么docker环境以及用的哪种方式部署,其中可以分为如下情况
 
-| 情况编号 | 部署方式       | docker执行环境                  |
-| -------- | -------------- | ------------------------------- |
-| 1        | 远程单机/local | docker standalone               |
-| 2        | agent          | docker swarm                    |
-<!-- | 3        | edge agent     | docker standalone和docker swarm |
-| 4        | agent          | k8s                             | -->
+| 情况编号 | 部署方式       | docker执行环境    |
+| -------- | -------------- | ----------------- |
+| 1        | 远程单机/local | docker standalone |
+| 2        | agent          | docker swarm      |
+| 3        | edge agent     | docker standalone |
+| <!--     | 4              | agent             | k8s | --> |
 
 下面我们来详细介绍这几种情况的使用
 
@@ -98,7 +98,7 @@ portainer的使用主要看管理的是什么docker环境以及用的哪种方�
 + `Dashboard`用于描述当前端点的概况,我们可以一目了然的看到当宿主机的cpu和内存情况,以及服务的部署情况等
 + `App Template`用于保存和维护docker standalone和docker swarm下的docker-compose.yml模板.
 + `Stacks`用于维护部署中的`stack`.
-+ `Container`用于维护部署中的容器
++ `Containers`用于维护部署中的容器
 + `Images`用于维护当前宿主机上存在的镜像
 + `Networks`用于维护当前docker中创建的network
 + `Volumes`用于维护当前docker挂载的存储资源,通常nfs设置也在这边
@@ -122,8 +122,35 @@ portainer的使用主要看管理的是什么docker环境以及用的哪种方�
 
 ### 情况2
 
-使用agent部署docker swarm的情况
+使用agent部署docker swarm的情况下管理页面包括:
 
-<!-- 
-### 情况3 -->
++ `Dashboard`用于描述当前端点的概况,我们可以一目了然的看到集群总体的的服务部署情况
++ `App Template`用于保存和维护docker standalone和docker swarm下的docker-compose.yml模板.
++ `Stacks`用于维护部署中的`stack`.
++ `Services`用于维护部署中的`service`
++ `Containers`用于维护部署中的容器,注意直接部署容器需要指定节点
++ `Images`用于维护当前集群各个节点上存在的镜像,我们可以在其中直接为节点拉取镜像
++ `Networks`用于维护当前docker中创建的network
++ `Volumes`用于维护当前docker挂载的存储资源,通常nfs设置也在这边,与单机版本相比swarm版本可以查看挂载中的文件结构,以及下载其中的文件到本地,不过依然只能增删不可以修改内容.需要注意的是创建volumes需要指定节点,因此创建操作最好还是在stack里做这样比较容易维护
++ `Configs`用于查看和管理当前设置的共享配置,注意它只能增删不能改
++ `Secrets`用于查看和管理当前设置的共享密钥,注意它只能增删不能改
++ `Swarm`用于管理当前集群的节点,注意它只能修改节点信息,添加删除节点,以及修改节点角色依然还是只能通过命令行
 
+在swarm情况下部署分为`stack`,`service`和`contaners`3级.这3级都可以在portainer中直接部署,但一般还是在`stack`一级部署会更容易管理些.
+
+![stack管理页面](../IMGS/portainer-swarm-stack.PNG)
+
+`stack`中的docker-compose内容在`Editor`子页面,使用的是v3版本的docker-compose来部署.可以看出其结构和单机版本差别不大.和在单机版本中差不多,我们可以更改后点击`Update the stack`来更新这个stack.也可以通过`Stack duplication / migration`下面的选项来迁移stack.
+
+与单机版本的差别主要在页面底部的`services`栏目下.它依然是用于管理当前stack中服务的地方,只是在容器一层外多加了一层`service`,每个`service`可以点击打开,里面是单独的每个容器,容器管理和单机一样,依然是:
+
++ `文件图标`: 查看容器log
++ `感叹号图标`: 查看容器状态
++ `图表图标`: 观察容器资源占用
++ `命令行图标`: 连接容器命令行
+
+而如果要管理某个`service`则需要点击它的名字进入页面进行管理.在其中我们可以点击`Service logs`观察所有节点log的汇总.需要注意`Service logs`中打印是无序的,要分辨出是谁打的需要在log层面做标识.
+
+在`service`中我们也可以启动`web hook`来自动化更新,这个我们在后面的CI/CD部分再详细介绍
+
+### 情况3
