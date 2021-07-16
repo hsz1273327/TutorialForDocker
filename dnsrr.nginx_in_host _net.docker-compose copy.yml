@@ -1,0 +1,14 @@
+version: "3.7"
+services:
+  nginx:
+    image: nginx
+  
+    deploy:
+      mode: global
+    networks:
+      - mynetwork
+
+networks:
+  mynetwork:
+    external: true
+    name: host
