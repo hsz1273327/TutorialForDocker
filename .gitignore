@@ -49,3 +49,5 @@ Temporary Items
 env
 .mypy_cache
 bin
+.devcontainer
+__pycache__
