@@ -61,37 +61,29 @@ portainer支持docker本地安装,docker swarm集群安装,以及k8s集群安装
 
 ## 添加端点
 
-我们用portainer主要是添加3类端点:
+按部署环境分,我们用portainer主要是添加3种端点:
 
-+ 远程单机环境Docker
++ 单机环境Docker
++ swarm环境
++ k8s环境
 
-    这种端点必须开通要连接的宿主机上docker自带的api加入端点.建议加上tls确保安全性.
 
-    这种选择路径`Endpoints->Docker`,然后填上远程docker环境的自带api路径即可
+我们的portainer按照端点和portainer部署节点的访问方式分可以分为两类:
 
-+ agent模式
+1. 内网端点,部署`portainer`本身的环境所在的端点和使用`agent`模式添加的端点.
+    这种模式主要是为内网集群管理设计的.`agent`和`portainer`的部署环境需要可以互联.这种方式相对反馈更加及时,目前支持单机docker环境,swarm环境和k8s环境.一般来说推荐使用这种模式添加端点.
 
-    这种模式支持添加swarm集群或者k8s集群,它需要先在集群上以global方式部署镜像`portainer/agent`,而且容器需要映射宿主机的`/var/run/docker.sock`和`/var/lib/docker/volumes`
-
-+ edge agent模式
-
+2. 边缘端点,使用`edge agent`模式添加的端点.
     这种模式主要是为边缘计算设计的,它和agent模式的主要区别是edge agent模式管理的单机或者集群并不需要portainer的宿主机可以访问到,只要部署为`edge agent`的机器可以访问到portainer即可.因此一般用这种模式管理其他内网内的集群.比如我们在成都分公司有一个swarm集群,南京分公司有一个swarm集群,深圳分公司也有一个swarm集群,这些集群都部署在公司内网且这些内网并没有相互大打通,那么如果我们希望在北京总部统一管理这些swarm集群就可以使用edge agent模式.
     edge agent模式目前支持单机docker环境,swarm环境和k8s环境,它甚至支持windows下的docker和swarm环境,不过需要部署portainer的机器对外网开放8000端口.
 
-## 使用
+这两种部署方式在针对上面3种端点时使用方式区别不大,只是边缘端点会比内网端点多出边缘计算功能,可以用于统一管理不同端点上的任务和部署服务
 
-portainer的使用主要看管理的是什么docker环境以及用的哪种方式部署,其中可以分为如下情况
-
-| 情况编号 | 部署方式       | docker执行环境    |
-| -------- | -------------- | ----------------- |
-| 1        | 远程单机/local | docker standalone |
-| 2        | agent          | docker swarm      |
-| 3        | edge agent     | docker standalone |
-| <!--     | 4              | agent             | k8s | --> |
+## 3种端点使用上的区别
 
 下面我们来详细介绍这几种情况的使用
 
-### 情况1
+### 单机环境Docker
 
 在远程单机或者本地单机的情况下portainer的管理页面包括:
 
@@ -120,7 +112,7 @@ portainer的使用主要看管理的是什么docker环境以及用的哪种方�
 + `图表图标`: 观察容器资源占用
 + `命令行图标`: 连接容器命令行
 
-### 情况2
+### swarm环境
 
 使用agent部署docker swarm的情况下管理页面包括:
 
@@ -153,4 +145,4 @@ portainer的使用主要看管理的是什么docker环境以及用的哪种方�
 
 在`service`中我们也可以启动`web hook`来自动化更新,这个我们在后面的CI/CD部分再详细介绍
 
-### 情况3
+## 边缘计算
