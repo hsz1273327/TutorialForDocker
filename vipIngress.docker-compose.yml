@@ -8,6 +8,17 @@ services:
     ports:
       - "5001:5000"
 
+  helloworld-1:
+    image: hsz1273327/hellodocker-go:0.0.0
+    deploy:
+      endpoint_mode: vip
+      mode: global
+      placement:
+        constraints:
+          - "node.hostname==RaspPiNode1"
+    ports:
+      - "5000:5000"
+
   test_helloworld:
     image: hsz1273327/ab:0.0.0
     command: 

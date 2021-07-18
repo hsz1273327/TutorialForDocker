@@ -18,6 +18,11 @@ services:
 
   helloworld:
     image: hsz1273327/hellodocker-go:0.0.0
+    ports:
+      - mode: host
+        protocol: tcp
+        published: 5000
+        target: 5000
     deploy:
       endpoint_mode: vip
       mode: global

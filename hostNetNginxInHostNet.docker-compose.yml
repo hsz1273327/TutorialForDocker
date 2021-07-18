@@ -10,7 +10,7 @@ services:
     networks:
       - mynetwork
     configs:
-      - source: nginx-conf
+      - source: nginx-for-host
         target: /etc/nginx/nginx.conf
 
   helloworld:
@@ -20,8 +20,16 @@ services:
     deploy:
       mode: global
     
+  test_helloworld:
+    image: hsz1273327/ab:0.0.0
+    command: 
+      - "-c"
+      - "25"
+      - "-n"
+      - "10000"
+      - http://192.168.31.41:5001/
 configs:
-  nginx-conf:
+  nginx-for-host:
     external: true
 networks:
   mynetwork:
