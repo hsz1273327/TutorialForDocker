@@ -402,18 +402,7 @@ linux是docker官方支持的方式,毕竟docker是建立在linux上的工具.�
 
 >> windows
 
-windows上的docker也是通过v-hyper虚拟机实现的,而对gpu的支持也是由微软提供的方案.这个方案依赖如下:
-
-+ 操作系统为`Windows Server 2019`或者`Windows 10, version 1809以上`
-+ 容器镜像必须基于[mcr.microsoft.com/windows:1809或更新的版本](https://hub.docker.com/_/microsoft-windows)
-+ docker 版本高于19.03
-+ gpu驱动版本高于WDDM 2.5,驱动版本可以在`DirectX Diagnostic Tool(dxdiag.exe)->Display->Diver Model`中查看版本
-+ `Containers feature`必须开启,在`windows Features->Containers`
-+ 容器必须以进程隔离模式运行,目前不支持Hyper-V隔离模式
-
-用法是在run命令中加入flag`--isolation process`和`--device`,例如`docker run --isolation process --device class/5B45201D-F2F2-4F3B-85BB-30FF1F953599 winml-runner`
-
-关于如何让容器使用gpu资源,我会在后续的文章中介绍
+windows上的docker可以通过wsl2为后端的docker desktop来访问gpu,不过有一些条件需要满足,关于如何让容器使用gpu资源,我会在后续的文章中介绍
 
 [1]: IMGS/tradictional_work_process.webp
 [2]: IMGS/镜像的结构.webp

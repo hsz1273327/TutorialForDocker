@@ -34,11 +34,7 @@ ps: 在群晖系统中docker可以通过docker套件安装,重启则必须通过
 
 + windows必须是win10,如果你是win10 home版本,那么你只能设置使用`wsl2`作为docker的执行后端;其他版本则可以选择使用`hyper-v`作为docker的执行后端,更加推荐使用`wsl2`,`hyper-v`作为后端可能会影响一些其他应用虚拟化技术的工具比如一些安卓模拟器.
 
-+ windows版Docker Desktop如果使用`wsl2`作为docker的执行后端可以使用gpu资源,需要如下配置:
-    1. NVIDIA的gpu
-    2. Windows更新到最新版本
-    3. 更新[nvidia驱动](https://developer.nvidia.com/cuda/wsl/download)(注意需要注册账号)
-    4. 更新wsl(`wsl --update`)
++ windows版Docker Desktop如果使用`wsl2`作为docker的执行后端可以使用gpu资源
 
 + 目前最新版本的Docker Desktop要使用docker-compose需要在`setting->Experimental Features`中激活`Use Docker Compose V2`
 + mac os目前的m1芯片版本使用的是rostta执行的x86_64版本的程序,官网上列出了不少问题,也就是说还不成熟.Intel版本的mac可以使用原生的x86_64版本的程序.mac版本的docker desktop使用的后端是`HyperKit`.
