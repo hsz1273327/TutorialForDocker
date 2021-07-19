@@ -65,6 +65,8 @@ overlay网络是Swarm的默认网络形式.它是一个全功能的虚拟网络,
 1. vip(虚拟ip)模式,
 2. dnsrr(dns轮询)模式
 
+overlay网络创建时会分配虚拟网段,也就是为每个容器分配一个ip地址,默认情况下最大为255个ip,因此一个overlay网络默认最多可以挂载255个容器,我们应该尽量不要使用默认的自带overlay网络而是自己创建.
+
 ### vip模式
 
 vip(虚拟ip)模式,这种模式在docker内部将同一个service下的所有容器的ip都聚合为一个虚拟ip,当docker内部其他服务使用service的名字作为hostname访问它时,访问方将会获得这个虚拟ip,而这个虚拟ip会负责在同一service下的所有容器种分发请求流量.这种模式可以使用`ports`开放端口给外部使用.
