@@ -126,3 +126,28 @@ dnsrr(dns轮询)模式,这种模式在docker内部将会启用一个dns服务器
 + 对外部多实例并不能达到1+1=2的效果,性能会在`ingress`层或者用户自己使用的反向代理层被损失掉大半.因此要不要多实例,什么时候扩展实例数量需要做权衡.
 
 + 如果服务既要能被外部访问,又要起多个实例,最优方案是使用`dnsrr模式的overlay网络`外挂一个`vip模式的overlay网络`并且使用`host mode`部署的反向代理.虽然这种方案性能上和全host网络部署几乎无差,但胜在可扩展性强,可以任意扩展实例数量而且不会污染外部端口.而如果对性能不敏感,直接使用`vip模式的overlay网络`并且使用`ingress mode`模式部署是最省心的.性能损失也不过是10%不到.
+
+## 使用overlay网络串联多个stack
+
+docker swarm会为每一个stack创建一个默认的名为`<stack_name>_default`的overlay网络.在只在同一个stack中通信的情况下还是很够用的,但如果多个stack间要进行通信的话就只能走外部接口访问了.从上面的例子可以看出来外部访问性能损失很大并不划算,我们就得借助用户自定义的overlay网络来串联各个stack了.
+
+### 创建attachable的overlay网络
+
+我们可以通过`docker network create`子命令在manager节点上创建网络
+
+```bash
+docker network create -d overlay --attachable my-overlay
+```
+
+这样在构造stack时我们就可以通过声明外部网络的方式将其中的所有service挂载到定义的网络上:
+
+```yaml
+networks:
+  mynetwork:
+    external: true
+    name: my-overlay
+```
+
+用法就和host网络一样了.
+
+需要注意在使用stack创建的默认overlay网络时我们可以直接使用stack中定义的service名作为hostname使用,但使用外部定义的overlay网络时我们就要使用完整的service名即`<stack_name>_<service_name>`
