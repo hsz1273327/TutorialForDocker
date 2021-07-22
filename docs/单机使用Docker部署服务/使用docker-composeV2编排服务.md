@@ -523,3 +523,7 @@ services:
 | `docker stop {name\|cid}`                           | ---                                                                                                                                                                         | 停止镜像                                    |
 
 除此之外我们也可以使用第三方工具[ctop](https://github.com/bcicen/ctop)来更方便的查看运行中的容器状态.它可以监控容器的资源占用.直接执行`ctop`就可以得到更加可读的当前执行中容器的状态了.
+
++ 删除已经停止的镜像
+
+容器停止后不会自己消失,我们需要手动指定删除--`docker rm {name\|cid}`.如果要批量删除我们可以使用`docker container prune -f`命令

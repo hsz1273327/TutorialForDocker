@@ -320,15 +320,15 @@ docker buildx build --load --platform={指定平台} -t {tag} .
 
 本地的镜像管理可以汇总为如下表格:
 
-| 说明                     | 命令                                                              |
-| ------------------------ | ----------------------------------------------------------------- |
-| 查看本地镜像             | `docker images`                                                   |
-| 搜索`docker hub`中的镜像 | `docker search {imagesname}`                                      |
-| 为已有的镜像打标签       | `docker tag {iid} {tag}`                                          |
-| 删除镜像                 | `docker rmi {iid}`                                                |
-| 强制删除镜像             | `docker rmi -f {iid}`                                             |
-| 查看镜像属性             | `docker inspect {iid}`                                            |
-| 批量删除无标签镜像       | `docker rmi (docker images --filter dangling=true -q --no-trunc)` |
-| 批量删除所有镜像         | `docker rmi (docker images -q)`                                   |
-| 导出镜像                 | `docker save {iid} > {name}.tar`                                  |
-| 导入镜像                 | `docker load < {name}.tar`                                        |
+| 说明                                 | 命令                                                                                          |
+| ------------------------------------ | --------------------------------------------------------------------------------------------- |
+| 查看本地镜像                         | `docker images`                                                                               |
+| 搜索`docker hub`中的镜像             | `docker search {imagesname}`                                                                  |
+| 为已有的镜像打标签                   | `docker tag {iid} {tag}`                                                                      |
+| 删除镜像                             | `docker rmi {iid}`                                                                            |
+| 强制删除镜像                         | `docker rmi -f {iid}`                                                                         |
+| 查看镜像属性                         | `docker inspect {iid}`                                                                        |
+| 批量删除未在使用无标签镜像(虚悬镜像) | `docker rmi (docker images --filter dangling=true -q --no-trunc)`/`docker container prune -f` |
+| 批量删除所有镜像                     | `docker rmi (docker images -q)`                                                               |
+| 导出镜像                             | `docker save {iid} > {name}.tar`                                                              |
+| 导入镜像                             | `docker load < {name}.tar`                                                                    |
