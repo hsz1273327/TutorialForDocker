@@ -2,6 +2,12 @@
 
 CI/CD几乎是现代软件工程的标配,我们可以通过定义任务管道自动的将测试,校验,打包,部署完成.而且这些是非侵入式的,这就让开发和运维解耦了.开发人员只需要写好程序,其他工作将交给程序自动完成.
 
+本文将以jenkins作为CI/CD工具,借助gitea作为代码仓库,配合harbor以及portainer的api来实现完整的CI/CD管道.不了解这两个工具的朋友可以看我博客[使用Github开始你的开源生涯系列文章](https://blog.hszofficial.site/series/%E4%BD%BF%E7%94%A8Github%E5%BC%80%E5%A7%8B%E4%BD%A0%E7%9A%84%E5%BC%80%E6%BA%90%E7%94%9F%E6%B6%AF/)中的这[使用Git管理你的代码](https://blog.hszofficial.site/introduce/2020/10/31/%E4%BD%BF%E7%94%A8Git%E7%AE%A1%E7%90%86%E4%BD%A0%E7%9A%84%E4%BB%A3%E7%A0%81)和[使用Jenkins代替GithubActions自动化工作流](https://blog.hszofficial.site/recommend/2020/12/02/%E4%BD%BF%E7%94%A8Jenkins%E4%BB%A3%E6%9B%BFGithubActions%E8%87%AA%E5%8A%A8%E5%8C%96%E5%B7%A5%E4%BD%9C%E6%B5%81/)两篇文章.
+
+本文也是接在这系列文章之后的内容,毕竟现今的CI/CD几乎docker已经不可能缺席了.
+
+## Docker体系下的CI/CD管道
+
 在Docker体系下我们的CI/CD管道可以分为5步:
 
 1. 代码风格(静态类型)校验
@@ -10,236 +16,30 @@ CI/CD几乎是现代软件工程的标配,我们可以通过定义任务管道�
 4. 镜像漏洞扫描
 5. 镜像部署
 
-本文将以jenkins作为CI/CD工具,借助gitea作为代码仓库,配合harbor以及portainer的api来实现完整的CI/CD管道.不了解这两个工具的朋友可以看我博客[使用Github开始你的开源生涯系列文章](https://blog.hszofficial.site/series/%E4%BD%BF%E7%94%A8Github%E5%BC%80%E5%A7%8B%E4%BD%A0%E7%9A%84%E5%BC%80%E6%BA%90%E7%94%9F%E6%B6%AF/)中的这[使用Git管理你的代码](https://blog.hszofficial.site/introduce/2020/10/31/%E4%BD%BF%E7%94%A8Git%E7%AE%A1%E7%90%86%E4%BD%A0%E7%9A%84%E4%BB%A3%E7%A0%81)和[使用Jenkins代替GithubActions自动化工作流](https://blog.hszofficial.site/recommend/2020/12/02/%E4%BD%BF%E7%94%A8Jenkins%E4%BB%A3%E6%9B%BFGithubActions%E8%87%AA%E5%8A%A8%E5%8C%96%E5%B7%A5%E4%BD%9C%E6%B5%81/)两篇文章.
+`使用Jenkins代替GithubActions自动化工作流`一文中我们已经可以用其中例子依葫芦画瓢完成1,2两步了,而harbor中我们也可以直接配置镜像漏洞扫描,剩下的我们则会在本文中介绍.
 
-本文也是接在这系列文章之后的内容,毕竟现今的CI/CD几乎docker已经不可能缺席了.
+本文将在gitea上创建项目`test/helloworld`,用之前[golang版本helloworld](https://github.com/hsz1273327/TutorialForDocker/tree/example-image-build-opt-build-go)的代码做例子演示
 
-## 镜像标签与版本管理
+Docker体系下的CI/CD管道
 
-docker系体下镜像标签一版用于管理应用版本.但docker镜像标签的特点是同一个镜像可以有多个标签,因为实际上标签真的就是标签而已,镜像的唯一标识是一串hash字符串.针对这一特点,再结合git的常用工作流就有了不同的思路来管理容器使用的应用版本(工作流带来的路径依赖).但无论哪种方式,我的建议是镜像无论如何都要有明确的版本号,并且只给可以用于生产的镜像打`latest`标签.我们就针对`使用Git管理你的代码`一文中介绍的3种常见工作流来谈下在各自的工作流中怎么打标签
+### 自动化打包镜像
 
-### [主干分支策略](https://blog.hszofficial.site/introduce/2020/10/31/%E4%BD%BF%E7%94%A8Git%E7%AE%A1%E7%90%86%E4%BD%A0%E7%9A%84%E4%BB%A3%E7%A0%81/#%E4%B8%BB%E5%B9%B2%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5trunk-baseddevelopment)及其变种的镜像标签管理
+我们希望自动化打包可以使用buildx,打包跨平台的镜像,因此我们需要使用镜像[jdrouet/docker-with-buildx](https://hub.docker.com/r/jdrouet/docker-with-buildx),这个镜像是`docker:dind`的扩展.
 
-这种工作流的特点是`master`分支由于有频繁的merge而无法保证一直可用,`release-<大版本>`分支由于也会有从`master`分支合并进来的情况只能大概率保证可用.只有打tag留档的才能保证确实可用.因此我们可以用如下策略构造镜像
+此外我们需要将登录我们harbor的信息注册到jenkins中.下面是`Jenkinsfile`示例
 
-| 分支                 | 镜像标签命名             | 期望                                              |
-| -------------------- | ------------------------ | ------------------------------------------------- |
-| `release-<大版本号>` | `release-<版本号>`标签   | 预发版环境可用,用于`端到端测试`和`消费者驱动测试` |
-| `maste`              | `dev-<版本号>`标签       | 允许不能使用,更多的用于本地`单元测试`和`服务测试` |
-| 各种tag              | `<版本号>`及`latest`标签 | 线上环境确保可用                                  |
-
-### [GithubFlow](https://blog.hszofficial.site/introduce/2020/10/31/%E4%BD%BF%E7%94%A8Git%E7%AE%A1%E7%90%86%E4%BD%A0%E7%9A%84%E4%BB%A3%E7%A0%81/#githubflow)及其变种的镜像标签管理
-
-这种工作流特点是通过`pull request`强制要求code review来确保合并进`master`来代码后可用,因此每次merge后就应该重新打包更新版本.这种工作流的镜像标签策略也是最简单的:
-
-| 分支     | 镜像标签命名               | 期望             |
-| -------- | -------------------------- | ---------------- |
-| `master` | `<commit号>`及`latest`标签 | 线上环境确保可用 |
-
-### [gitflow](https://blog.hszofficial.site/introduce/2020/10/31/%E4%BD%BF%E7%94%A8Git%E7%AE%A1%E7%90%86%E4%BD%A0%E7%9A%84%E4%BB%A3%E7%A0%81/#gitflow)及其变种的镜像标签管理
-
-这种工作流中应用版本非常明确,分支角色也相当明确,可以看到`master`分支上永远都是可用版本;`release`分支上永远是预发布版本,通常也应该是可用版本;而`dev`分支则是用于merge各种特性和hotfix的分支,通常它的目的就是让应用可用,为了验证其可符合要求,我们也会给上面的节点打镜像,至于其他分支就没必要打镜像了.这样就非常明确了.
-
-| 分支      | 镜像标签命名             | 期望                                              |
-| --------- | ------------------------ | ------------------------------------------------- |
-| `master`  | `<版本号>`及`latest`标签 | 线上环境确保可用                                  |
-| `release` | `release-<版本号>`标签   | 预发版环境可用,用于`端到端测试`和`消费者驱动测试` |
-| `dev`     | `dev-<版本号>`标签       | 允许不能使用,更多的用于本地`单元测试`和`服务测试` |
-
-### 部署镜像时的标签选择.
-
-一般是两种思路,这两种方式各有优缺点:
-
-1. 永远只部署`latest`标签的镜像
-    优点:
-    + 是部署的stack可以不用改,每次原样update就好
-    缺点:
-    + 镜像版本不是显式的,不够明确
-    + 更新会带来许多标签为`<none>`的虚悬镜像,需要定期使用`docker system prune -f`清理虚悬镜像
-2. 部署时指定版本号
-
-
-
-永远只部署`latest`标签的镜像
-
-
-
-## 针对jenkins配置
-
-# 使用Jenkins代替GithubActions自动化工作流
-
-CI/CD是现代开发体系中提高工作效率的基础.我们知道一般开发行为中开发编码的时间往往只占30%,剩下的全是测试和部署.如果可以降低测试和部署的时间那就可以大大提高工作效率.
-CI/CD就是这样的工具,它的作用就是利用脚本自动化测试和部署.
-
-在`Github Actions`出现之前,Github上也是使用第三方CI/CD工具的,那个时候[Jenkins](https://github.com/jenkinsci/jenkins)就是主流之一(另一个是Travis CI).
-<!--more-->
-
-## Jenkins简介
-
-`Jenkins`是完全开源免费的项目,它的使用也没有什么限制.而且它的部署不依赖代码仓库,用户系统也是和代码仓库不通用的,这也就意味着天生的开发与测试,部署隔离.同时它支持图形化的流程配置,可以一定程度上降低维护人员的学习成本.我们只需要忍受丑陋的ui即可.
-
-本文推荐对想了解更多的读者可以看[jenkins官方文档](https://jenkins.io/zh/doc/book/pipeline/)作为补充
-
-顺道一提我之前公司一直使用的是gitlab套件,虽然体验上一致性还是不错的,但迁移了几次,每次都得重新部署全套,这相当让人厌烦.不少公司的运维人员恐怕连编程都不会,更不要提写脚本部署了,每次迁移都是一个伤筋动骨的过程,要不等上将近一周的时间等运维一个一个组件的部署完,要么自己动手.而权限分配也必然是我这个pm的任务,每次迁移都会重新配置一次权限.如果CI/CD和代码仓库分离,那么我只需要重新配置对应项目的仓库地址,这虽然也是个体力活,但已经比全部重配好得多.程序设计中有个单一职责原则,在工具选择上个人认为也是同样适用的.
-
-<!-- 本项目对应的代码在[hszofficial/test_jenkins](https://github.com/hszofficial/test_jenkins) -->
-
-## docker上搭建Jenkins
-
-不啰嗦直接上docker-compose.yml
-
-```yml
-jenkins-server:
-  image: jenkinsci/blueocean
-  volumes:
-    - /volume2/docker_deploy/devtools/jenkins/data:/var/jenkins_home
-    - /var/run/docker.sock:/var/run/docker.sock
-  mem_limit: 2g
-  restart: on-failure
-  ports:
-    - "8080:8080"
-  logging:
-    <<: *default-log
-
-```
-
-如果要使用https,我们需要设置如下环境变量,当然还要把证书和私钥挂到volumes上.
-
-```yaml
-environment: 
-  JENKINS_OPTS: "--httpPort=-1 --httpsPort=8083 --httpsCertificate=/certs/x.pem --httpsPrivateKey=/certs/x.key"
-```
-
-如果要考虑后续的扩展性,可以打开`50000端口`,这个端口可以用于后续挂载slaver节点.
-
-我是在protainer上进行部署的,新建一个stack把上面配置的贴上就可以部署了.
-
-jenkins至今依然是一个活跃的开源项目,依然会有更新,其中的插件也会有更新,在protainer中更新的方式很简单,先拉取最新的镜像,之后进入stack使用`update`即可.
-
-注意目前该镜像只支持amd64指令集
-
-## 配置jenkins的各项功能
-
-安装完自然要配置,jenkins主要的配置项有:
-
-+ 节点配置(非必须)
-
-jenkins支持多节点,其好处是可以在多台机器上做编译,测试工作,以提高吞吐量,当然小型团队完全没有必要搞.
-一样我们可以使用镜像[jenkins/inbound-agent](https://hub.docker.com/r/jenkins/inbound-agent/),最好将他部署到swarm集群上,注意目前该镜像也只支持amd64指令集
-
-部署好后再jenkins中`系统管理->节点管理`中对节点进行配置和监控.
-
-+ 插件管理
-
-在`系统管理->插件管理`中可以管理插件.安装插件在右上角搜索框中查找到后点它安装即可,插件安装完后需要重启服务,这个是自动的我们不用人为干预.
-
-我们会安装`Git Parameter`.
-
-+ 用户和安全配置
-
-在`系统管理->管理用户`中可以对用户进行管理.
-
-接着在`系统管理-->全局安全配置-->授权策略`中选择`项目矩阵授权策略`,然后为你的运维组成员设置不同的全局权限.
-
-不同项目的权限可以在`主页`点击`项目名`进入后再`配置`项中勾选`启用项目安全`来激活.在其中添加你希望添加的用户,并给他服务相应权限.
-
-通常一家规模不大的公司,运维可能只有1,2个人,这种时候其实就没有太大必要弄得这么复杂,直接给与权限就好
-
-+ 邮箱配置
-
-邮箱需要安装`Email Extension Plugin`插件,接着在`系统管理->系统设置`中找到`E-mail Notification`然后写上你可以发送消息的邮箱登录信息即可.
-
-![设置邮箱]({{site.url}}/img/in-post/jenkins/emailconf1.png)
-注意在这之前还需要配置下管理员邮箱,这个邮箱要与发件箱一致.
-![设置管理员邮箱]({{site.url}}/img/in-post/jenkins/emailconf2.png)
-
-接着配置`Extended E-mail Notification`
-
-前面和默认邮箱配置一致,后面会有一些新的内容,主要是设置默认的收件人`Default Recipients`,可填写多个,中间用空格隔开.这个值可以在`$DEFAULT_RECIPIENTS`变量中取到
-
-## 构建一个基于git的项目
-
-基于git的项目我们一般使用`多分支流水线`,针对不同的分支和行为进行不同的管理.创建方法是:
-
-+ 在`凭据->系统`下添加一个域比如叫`admin`,进入其中使用`添加凭据`创建一条凭据,凭据可以是用户名密码也可以是ssh的秘钥.
-+ `New 任务->输入项目名->多分支流水线`进入多分支流水线设置页面
-+ 设置`Build Configuration`选`Mode: by Jenkinsfile`,`Script Path:Jenkinsfile`这样我们就是可以使用项目中的`Jenkinsfile`来定义过程了
-+ 如果用于编译的库不在dockerhub拉取而是在自己的镜像仓库拉取,name可以设置`Pipeline Model Definition`中的内容
-    + `Docker Label`用于设置默认拉取的镜像标签(如果没显式的写出来),
-    + `Docker registry URL`用于设置私有仓库地址
-    + `Registry credentials`用于设置私有仓库的登录凭证
-+ `Scan 多分支流水线 Triggers`勾选`Periodically if not otherwise run`,将周期设为`1h`一般就可以了.这个设置可以隔段时间扫描下仓库创建出合适的分支
-
-这些都设置好了还不能保存,我们开始重点--针对`gogs`和`github`项目的配置,这个项目需要配置`Branch Sources`
-
-### 配置gogs项目
-
-我的个人私有仓库就是使用的gogs,这东西用go写的,轻量简单,有工单系统,有wiki系统,作为一个代码仓库已经很好用了.
-
-> jenkins端的设置
-
-1. 在`Branch Sources`中选择`Git`,复制上项目的仓库地址并填上登录凭证,
-2. `Behaviours`中添加行为,包括
-   1. Discover branches
-   2. Discover tags
-
-之后保存,保存好了后gogs会扫描项目创建pipeline
-
-> gogs端的配置
-
-pipeline配置gogs需要在gogs中进入要配置的项目
-
-![gogs上配置]({{site.url}}/img/in-post/jenkins/gogs测试.png)
-
-之后保存,然后再次进去这个webhook可以在gogs上测试线是否可以连通
-
-### 配置github项目
-
-> jenkins端的项目设置
-
-1. 在`Branch Sources`中选择`Github`,复制上项目的仓库地址并填上登录凭证,
-2. 填上拥有者,也就是组织或者用户的名字
-3. 这时候就可以在下面的下拉菜单中找到要配置的项目了
-4. 下面的行为一块都有翻译,就不介绍了
-
-之后保存,保存好了后gogs会扫描项目创建pipeline
-
-> github端的权限配置
-
-在github上`个人页面->setting->Developer settings->Personal access tokens`生成一个token,注意选择下权限.
-
-jenkins必须使用token才能进行访问
-
-> jenkins端的访问设置
-
-1. 在`凭据->系统`中添加一个新的密钥,选择`secret text`后填上刚拿到的token,这个就叫做`github token`,再添加一个token填上一段自己的文字叫`github access token`
-2. 在`系统管理->系统配置->	GitHub`上`添加github服务器`,将`github token`选上,点击测试下能不能通
-3. 选择`advance`后勾选`为 Github 指定另外一个 Hook URL`,这时我们可以获得一个url,并选上`github access token`.
-
-![jenkins端的访问设置]({{site.url}}/img/in-post/jenkins/jenkins端的访问设置.png)
-
-> github端的项目配置
-
-1. 进入项目,在`setting->Webhooks->add Webhooks`填上获得一个url,并填上`github access token`对应的文本
-
-![github上配置]({{site.url}}/img/in-post/jenkins/github测试.png)
-
-
-## 为项目构建pipeline
-
-我们可以每个分支都有一个`Jenkinsfile`,也可以只在`master`分支有一个`Jenkinsfile`个人推荐在项目创建之初就将`Jenkinsfile`创建好,后面每次创建分支就会都带上这个文件,需要修改的话就单独修改.
-
-一个典型的`Jenkinsfile`如下:
-
-```groovy
+```Jenkinsfile
 pipeline {
   agent none
   environment {
-    sendmail = 'yes'
-    version = '0.0.2'
+    VERSION = '0.0.0'
+    REGISTRY = 'xxxx'
+    NAMESPACE = 'test'
+    ARTIFACT_NAME = 'hellodocker'
+    ARTIFACT_PLATFORMS = 'linux/amd64,linux/arm64'
   }
   stages {
-    stage('Test') {
+    stage('BuildArtifact') {
       when {
         anyOf {
           branch 'test'
@@ -249,330 +49,94 @@ pipeline {
       }
       agent {
         docker {
-          image 'python:3.6'
+          image 'jdrouet/docker-with-buildx:latest'
         }
       }
       steps {
-        withEnv(["HOME=${env.WORKSPACE}"]) {
-          echo 'install requirement'
-          sh 'python -m pip install --user -r requirements.txt'
-          echo 'start test'
-          sh 'python -m coverage run --source=test_drone -m unittest discover -v -s .'
-          echo 'send report'
-          sh 'python -m coverage html -d report/coverage'
+        echo '[BuildArtifact] buildx init'
+        sh 'docker buildx create --use'
+        echo '[BuildArtifact] login harbor'
+        withCredentials([usernamePassword(credentialsId: 'xxxxx', usernameVariable: 'HARBOR_USER',passwordVariable: 'HARBOR_PWD')]) {
+            sh 'docker login -u "$HARBOR_USER" -p "$HARBOR_PWD" $REGISTRY'
         }
-      }
-      post {
-        success {
-          publishHTML([
-            allowMissing: true, 
-            alwaysLinkToLastBuild: true, 
-            keepAll: true, 
-            reportDir: 'report/coverage', 
-            reportFiles: 'index.html', 
-            reportName: 'Coverage Report - Unit Test'
-            ])
-          emailext body: "${git_url}:${git_branch} test success",
-            subject: "${git_url}:${git_branch} test success",
-            to: "hsz1273327@gmail.com"
-        }
-        failure {
-          emailext body: "${git_url}:${git_branch} test failure",
-            subject: "${git_url}:${git_branch} test failure",
-            to: "hsz1273327@gmail.com"
-        }
-      }
-    }
-    stage('Release') {
-      when {
-        branch "release-*"
-      }
-      agent any
-      steps {
-        withEnv(["HOME=${env.WORKSPACE}"]) {
-          sh 'docker build -t hsz1273327/test_drone:latest -t hsz1273327/test_drone:'+version+' .'
-          sh 'docker login -u hsz1273327 -p hsz881224'
-          sh 'docker push hsz1273327/test_drone'
-        }
-      }
-    }
-  }
-  post{
-    success {
-      script {
-        if (sendmail == 'yes') {
-          emailext body: '''pipelie succeed:
-          构建名称:${JOB_NAME}
-          构建结果:${BUILD_STATUS}
-          构建编号：${BUILD_NUMBER}
-          GIT 地址：${git_url}
-          GIT 分支：${git_branch}
-        ''',
-          subject: 'Jenkins build ${PROJECT_NAME} succeed', 
-          to: 'hsz1273327@gmail.com'
-        }
-      }
-    }
-    failure {
-      script {
-        if (sendmail == 'yes') {
-          emailext body: '''pipelie failure:
-            构建名称:${JOB_NAME}
-            构建结果:${BUILD_STATUS}
-            构建编号：${BUILD_NUMBER}
-            GIT 地址：${git_url}
-            GIT 分支：${git_branch}
-            ${BUILD_LOG}''',
-            subject: 'Jenkins build ${PROJECT_NAME} is ${currentBuild.result}: ${env.JOB_NAME} #${env.BUILD_NUMBER}',
-            to: 'hsz1273327@gmail.com'
-        }
+        echo '[BuildArtifact] start build'
+        sh 'docker buildx build --platform $ARTIFACT_PLATFORMS  -t $REGISTRY/$NAMESPACE/$ARTIFACT_NAME:$VERSION -t $REGISTRY/$NAMESPACE/$ARTIFACT_NAME:latest --push .'
+        echo '[BuildArtifact] build done'
       }
     }
   }
 }
 ```
 
-我们可以看到`pipeline`定义一条流程管道,其中
+这样推送后就可以在镜像仓库中找到了,如果我们的镜像仓库还设置了自动扫面,那么扫描工作也是自动化的了.
 
-+ `agent`用于定义全局使用的执行代理,
-+ `environment`用于定义全局的变量
-+ `stages`则用于定义管道中的步骤.
-+ `post`用于定义不同时点的输出.一般用于发送邮件
+### 镜像部署
 
-每个步骤包括名字和实现两个部分,实现部分又分为
+镜像部署要不要自动化,在什么情况下要自动化实际上是有争论的.主要的争论点在于如何平衡自动化持续交付和人工校验修改配置.我们可以将情况分为如下几大类:
 
-+ `when`触发条件
+1. 第一次stack部署
+2. 已存在的stack只更新配置
+3. 已存在的stack只更新镜像
+4. 已存在的stack同时更新镜像和配置
 
-+ `agent`使用的执行代理
+很明显1,2,4只能手动部署,而3则可以完全自动化部署更新.
 
-+ `steps`具体的执行步骤
+#### 使用portainer关联gitea上的仓库实现
 
-```groovy
-stage('Test') {
-  when {
-    anyOf {
-      branch 'test'
-      branch 'dev'
-      branch 'master'
-    }
-  }
-  agent {
-      docker {
-          image 'python:3.6'
-      }
-  }
-  steps {
-    withEnv(["HOME=${env.WORKSPACE}"]) {
-      sh 'python -m pip install --user -r requirements.txt'
-      sh 'python -m coverage run --source=test_drone -m unittest discover -v -s .'
-      sh 'python -m coverage report -m >report.txt'
-    }
-  }
-}
-```
+获取SwarmID
+http GET :9000/api/endpoints/1/docker/swarm \
+"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsInJvbGUiOjEsImV4cCI6MTQ5OTM3NjE1NH0.NJ6vE8FY1WG6jsRQzfMqeatJ4vh2TWAeeYfDhP71YEE"
 
-这一块的具体配置可以看[pipeline定义文档](https://www.w3cschool.cn/jenkins/jenkins-jg9528pb.html)和[使用script定义文档的关键字文档](https://jenkins.io/doc/pipeline/steps/workflow-basic-steps/#code-readfile-code-read-file-from-workspace)
+## 镜像标签与版本管理
 
+docker系体下镜像标签一版用于管理应用版本.但docker镜像标签的特点是同一个镜像可以有多个标签,因为实际上标签真的就是标签而已,镜像的唯一标识是一串hash字符串.针对这一特点,再结合git的常用工作流就有了不同的思路来管理容器使用的应用版本(工作流带来的路径依赖).但无论哪种方式,我的建议是镜像无论如何都要有明确的版本号,并且只给可以用于生产的镜像打`latest`标签.我们就针对`使用Git管理你的代码`一文中介绍的3种常见工作流来谈下在各自的工作流中怎么打标签
 
-### 展示html报告
+### [主干分支策略](https://blog.hszofficial.site/introduce/2020/10/31/%E4%BD%BF%E7%94%A8Git%E7%AE%A1%E7%90%86%E4%BD%A0%E7%9A%84%E4%BB%A3%E7%A0%81/#%E4%B8%BB%E5%B9%B2%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5trunk-baseddevelopment)及其变种的镜像标签管理
 
-我们可以在项目的`pipeline syntax`中设置`publish HTML`,然后只要我们在pipeline中有对应的`publishHTML`被执行了,就可以在分支的pipeline中左侧找到对应的链接了.
+这种工作流的特点是`master`分支由于有频繁的merge而无法保证一直可用,`release-<大版本>`分支由于也会有从`master`分支合并进来的情况只能大概率保证可用.只有打tag留档的才能保证确实可用.因此我们可以用如下策略构造镜像
 
-![设置邮箱]({{site.url}}/img/in-post/jenkins/html.png)
+| 分支                 | 镜像标签命名             | 期望                                              | 管道主要步骤 |
+| -------------------- | ------------------------ | ------------------------------------------------- | ------------ |
+| `release-<大版本号>` | `release-<版本号>`标签   | 预发版环境可用,用于`端到端测试`和`消费者驱动测试` | 1,2,3,4,5    |
+| `maste`              | `dev-<版本号>`标签       | 允许不能使用,更多的用于本地`单元测试`和`服务测试` | 1,2,3        |
+| 各种tag              | `<版本号>`及`latest`标签 | 线上环境确保可用                                  | 1,2,3,4,5    |
 
-### 发送邮件
+### [GithubFlow](https://blog.hszofficial.site/introduce/2020/10/31/%E4%BD%BF%E7%94%A8Git%E7%AE%A1%E7%90%86%E4%BD%A0%E7%9A%84%E4%BB%A3%E7%A0%81/#githubflow)及其变种的镜像标签管理
 
-我们可以在post中定义发送邮件的逻辑
+这种工作流特点是通过`pull request`强制要求code review来确保合并进`master`来代码后可用,因此每次merge后就应该重新打包更新版本.这种工作流的镜像标签策略也是最简单的:
 
-```text
-emailext body: '''pipelie failure:
-  构建名称:${JOB_NAME}
-  构建结果:${BUILD_STATUS}
-  构建编号：${BUILD_NUMBER}
-  GIT 地址：${git_url}
-  GIT 分支：${git_branch}
-  ${BUILD_LOG}''',
-  subject: 'Jenkins build ${PROJECT_NAME} is ${currentBuild.result}: ${env.JOB_NAME} #${env.BUILD_NUMBER}',
-  to: 'hsz1273327@gmail.com'
-```
+| 分支     | 镜像标签命名               | 期望             | 管道主要步骤 |
+| -------- | -------------------------- | ---------------- | ------------ |
+| `master` | `<commit号>`及`latest`标签 | 线上环境确保可用 | 1,2,3,4,5    |
 
-body中可以定义html模板,subject是主题,to指定发送去的邮箱
+至于单元测试和服务测试使用的镜像,则应该由pull request的发起者自己构造,构造管道的主要步骤就是1,2,3三步,这主要是两种类型
 
-## 分支管理
+1. 本地仓库的`feature`分支:使用分支名作为镜像标签名打包镜像
+2. fork出去仓库的分支(通常是`master`分支):一般使用维护组织的名字作为镜像标签名
 
-在实际项目中我的经验是主干分支策略会比较高效.
+### [gitflow](https://blog.hszofficial.site/introduce/2020/10/31/%E4%BD%BF%E7%94%A8Git%E7%AE%A1%E7%90%86%E4%BD%A0%E7%9A%84%E4%BB%A3%E7%A0%81/#gitflow)及其变种的镜像标签管理
 
-> 如果没有专职的运维,那么应该把代码和配置分开,配置打包进image中
+这种工作流中应用版本非常明确,分支角色也相当明确,可以看到`master`分支上永远都是可用版本;`release`分支上永远是预发布版本,通常也应该是可用版本;而`dev`分支则是用于merge各种特性和hotfix的分支,通常它的目的就是让应用可用,为了验证其可符合要求,我们也会给上面的节点打镜像,至于其他分支就没必要打镜像了.这样就非常明确了.
 
-```shell
+| 分支      | 镜像标签命名             | 期望                                              | 管道主要步骤 |
+| --------- | ------------------------ | ------------------------------------------------- | ------------ |
+| `master`  | `<版本号>`及`latest`标签 | 线上环境确保可用                                  | 1,2,3,4,5    |
+| `release` | `release-<版本号>`标签   | 预发版环境可用,用于`端到端测试`和`消费者驱动测试` | 1,2,3,4,5    |
+| `dev`     | `dev-<版本号>`标签       | 允许不能使用,更多的用于本地`单元测试`和`服务测试` | 1,2,3        |
 
-{代码开发 v0-base(v0-base分支)  ==>   dev-0.0.0(dev分支)  ==>  0.0.0(master分支,同时打好latest标签)  ==>  release-0.0.0(release-0.0.0分支,留档) }
-                                            |                          |
-                                            V                          V
-                                {代码调试 (debug分支)}        {配置文件部分 deploy-xxx(release-xxx分支,使用latest标签)}
-                                                                        |
-                                                                        V
-                                                            {部署部分 test分支,使用标签为deploy-xxx的镜像}
-                                                                        |
-                                                                        V
-                                                            {部署部分 production分支,使用标签为deploy-xxx的镜像}
-```
+### 部署镜像时的标签选择
 
-> 如果有专职的运维,那么代码仓库中应该只管代码
+一般是两种思路,这两种方式各有优缺点:
 
-```shell
+1. 永远只部署`latest`标签的镜像
+    + 优点:
+        + 是部署的stack可以不用改,每次原样update就好
+    +缺点:
+        + 镜像版本不是显式的,不够明确,这会让更新和回滚操作难以辨识是否成功
+        + 更新会带来许多标签为`<none>`的虚悬镜像,需要定期使用`docker system prune -f`清理虚悬镜像
 
-{代码开发 v0-base(v0-base分支)  ==>   dev-0.0.0(dev分支)  ==>  0.0.0(master分支,同时为image打好latest标签)  ==>  v0.0.0(v0.0.0 tag,留档) }
-                                     |           |
-                                     V           V
-                     {代码调试 (debug分支)}      {test分支,使用标签为test-xxx的镜像}
-```
-
-
-## 使用api调用portainer
-
-Portainer的http api可以在[swaggerhub](https://app.swaggerhub.com/apis/deviantony/Portainer/1.24.1)上找到,截止至Portainer 2.0版本,它的api文档还在1.24.1版本,但好在上面的api都还可以用,借助这个我们可以自动化除k8s端点外的各种端点上的部署过程.以swarm上为例可以参考下面的python脚本
-
-```python
-import os
-import yaml
-import requests as rq
-IMG_VERSION = os.getenv("IMG_VERSION")
-if not IMG_VERSION:
-    assert AttributeError("IMG_VERSION 不存在")
-CI_REGISTRY_IMAGE = os.getenv("CI_REGISTRY_IMAGE")
-if not CI_REGISTRY_IMAGE:
-    assert AttributeError("CI_REGISTRY_IMAGE 不存在")
-DEPLOY_ENV = os.getenv("DEPLOY_ENV")
-if DEPLOY_ENV not in ("dev", "release"):
-    assert AttributeError("DEPLOY_ENV 不合法,只能是dev和release")
-
-
-def deploy(*, url: str, username: str, password: str, endpoint_id: int, task_id: str, service_name: str, image_name: str) -> None:
-    res = rq.post(
-        url + "/auth",
-        json={
-            "Username": username,
-            "Password": password
-        }
-    )
-    jwt = res.json().get("jwt")
-    res = rq.get(
-        f"{url}/stacks/{task_id}/file",
-        headers=rq.structures.CaseInsensitiveDict({"Authorization": "Bearer " + jwt})
-    )
-    StackFileContent = res.json().get("StackFileContent")
-    s = yaml.load(StackFileContent)
-    s['services'][service_name]['image'] = image_name
-    compose = yaml.dump(s)
-    res = rq.put(
-        f"{url}/stacks/{task_id}",
-        headers=rq.structures.CaseInsensitiveDict({"Authorization": "Bearer " + jwt}),
-        params={"endpointId": endpoint_id},
-        json={
-            "StackFileContent": compose,
-            "Prune": False
-        }
-    )
-    print(res.json())
-
-
-if __name__ == "__main__":
-    if DEPLOY_ENV == "dev":
-        image_name = f"{CI_REGISTRY_IMAGE}:dev-{IMG_VERSION}"
-        CI_DEV_DEPLOY_USER = os.getenv("CI_DEV_DEPLOY_USER")
-        if not CI_DEV_DEPLOY_USER:
-            raise AttributeError("CI_DEV_DEPLOY_USER 不存在")
-        CI_DEV_DEPLOY_PWD = os.getenv("CI_DEV_DEPLOY_PWD")
-        if not CI_DEV_DEPLOY_PWD:
-            raise AttributeError("CI_DEV_DEPLOY_PWD 不存在")
-        CI_DEV_DEPLOY_URL = os.getenv("CI_DEV_DEPLOY_URL")
-        if not CI_DEV_DEPLOY_URL:
-            raise AttributeError("CI_DEV_DEPLOY_URL 不存在")
-        url = CI_DEV_DEPLOY_URL
-        username = CI_DEV_DEPLOY_USER
-        password = CI_DEV_DEPLOY_PWD
-        CI_DEV_DELPOY_PATH = os.getenv("CI_DEV_DELPOY_PATH")
-        if not CI_DEV_DELPOY_PATH:
-            raise AttributeError("CI_DEV_DELPOY_PATH 不存在")
-        for p in CI_DEV_DELPOY_PATH.split(","):
-            try:
-                CI_DEV_ENDPOINT_ID, CI_DEV_STACK_ID, CI_DEV_SERVICE_NAME = p.split("/")
-                if not CI_DEV_STACK_ID.isdigit():
-                    raise AttributeError(f"CI_DEV_STACK_ID 必须为数字型,实际为{CI_DEV_STACK_ID}")
-                if not CI_DEV_ENDPOINT_ID.isdigit():
-                    raise AttributeError(f"CI_DEV_ENDPOINT_ID 必须为数字型,实际为{CI_DEV_ENDPOINT_ID}")
-                endpoint_id = int(CI_DEV_ENDPOINT_ID)
-                task_id = CI_DEV_STACK_ID
-                service_name = CI_DEV_SERVICE_NAME
-                deploy(
-                    url=url,
-                    username=username,
-                    password=password,
-                    endpoint_id=endpoint_id,
-                    task_id=task_id,
-                    service_name=service_name,
-                    image_name=image_name)
-            except Exception as e:
-                print(f"{username}@{password} deploy {image_name} in dev {url} failed at {p}")
-                print(f"err: {e}")
-            else:
-                print(f"{username}@{password} deploy {image_name} in dev {url} succeed at {p}")
-    if DEPLOY_ENV == "release":
-        image_name = f"{CI_REGISTRY_IMAGE}:latest"
-        CI_PRO_DEPLOY_USER = os.getenv("CI_PRO_DEPLOY_USER")
-        if not CI_PRO_DEPLOY_USER:
-            raise AttributeError("CI_PRO_DEPLOY_USER 不存在")
-        CI_PRO_DEPLOY_PWD = os.getenv("CI_PRO_DEPLOY_PWD")
-        if not CI_PRO_DEPLOY_PWD:
-            raise AttributeError("CI_PRO_DEPLOY_PWD 不存在")
-        CI_PRO_DEPLOY_URL = os.getenv("CI_PRO_DEPLOY_URL")
-        if not CI_PRO_DEPLOY_URL:
-            raise AttributeError("CI_PRO_DEPLOY_URL 不存在")
-        url = CI_PRO_DEPLOY_URL
-        username = CI_PRO_DEPLOY_USER
-        password = CI_PRO_DEPLOY_PWD
-        CI_PRO_DELPOY_PATH = os.getenv("CI_PRO_DELPOY_PATH")
-        if not CI_PRO_DELPOY_PATH:
-            raise AttributeError("CI_PRO_DELPOY_PATH 不存在")
-        for p in CI_PRO_DELPOY_PATH.split(","):
-            try:
-                CI_PRO_ENDPOINT_ID, CI_PRO_STACK_ID, CI_PRO_SERVICE_NAME = p.split("/")
-                if not CI_PRO_STACK_ID.isdigit():
-                    raise AttributeError(f"CI_PRO_STACK_ID 必须为数字型,实际为{CI_PRO_STACK_ID}")
-                if not CI_PRO_ENDPOINT_ID.isdigit():
-                    raise AttributeError(f"CI_PRO_ENDPOINT_ID 必须为数字型,实际为{CI_PRO_ENDPOINT_ID}")
-                endpoint_id = int(CI_PRO_ENDPOINT_ID)
-                task_id = CI_PRO_STACK_ID
-                service_name = CI_PRO_SERVICE_NAME
-                deploy(
-                    url=url,
-                    username=username,
-                    password=password,
-                    endpoint_id=endpoint_id,
-                    task_id=task_id,
-                    service_name=service_name,
-                    image_name=image_name)
-            except Exception as e:
-                print(f"{username}@{password} deploy {image_name} in pro {url} failed at {p}")
-                print(f"err: {e}")
-            else:
-                print(f"{username}@{password} deploy {image_name} in pro {url} succeed at {p}")
-
-```
-
-上面这个脚本依赖于如下几个环境变量
-
-| 环境变量             | 说明                                              | 形式                                                            |
-| -------------------- | ------------------------------------------------- | --------------------------------------------------------------- |
-| `IMG_VERSION`        | 镜像版本                                          | `0.0.0`                                                         |
-| `CI_REGISTRY_IMAGE`  | 镜像标签,不含版本                                 | `hsz1273327/test_sanic`                                         |
-| `DEPLOY_ENV`         | 执行环境                                          | `release`,`dev`                                                 |
-| `CI_DEV_DEPLOY_USER` | 测试环境有部署权限的portainer的注册用户           | ---                                                             |
-| `CI_DEV_DEPLOY_PWD`  | 测试环境有部署权限的portainer的注册用户的登录密码 | ---                                                             |
-| `CI_DEV_DEPLOY_URL`  | 测试环境portainer的根url                          | ---                                                             |
-| `CI_DEV_DELPOY_PATH` | 在测试环境要部署的位置                            | `endpoint/stackid/servicename;endpoint/stackid/servicename;...` |
-| `CI_PRO_DEPLOY_USER` | 生产环境有部署权限的portainer的注册用户           | ---                                                             |
-| `CI_PRO_DEPLOY_PWD`  | 生产环境有部署权限的portainer的注册用户的登录密码 | ---                                                             |
-| `CI_PRO_DEPLOY_URL`  | 生产环境portainer的根url                          | ---                                                             |
-| `CI_PRO_DELPOY_PATH` | 在生产环境要部署的位置                            | `endpoint/stackid/servicename;endpoint/stackid/servicename;...` |
+2. 部署时指定版本号的镜像
+    + 优点:
+        + 部署明确,利于观测更新和回滚操作
+    + 缺点:
+        + 更新无法体现到部署时的stack文件上.
