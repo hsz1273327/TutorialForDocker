@@ -22,6 +22,10 @@ CI/CD几乎是现代软件工程的标配,我们可以通过定义任务管道�
 本文将在gitea和github上创建项目`docker-swarm_pipline_test`,用之前[golang版本hellodocker](https://github.com/hsz1273327/TutorialForDocker/tree/example-image-build-opt-build-go)的代码做例子演示镜像创建和更新.创建项目`docker-swarm_pipline_test_deploy`用于负责部署
 所以我们的CI/CD管道介绍也是分为两种环境--github+dockerhub的纯开放环境和gitea+harbor的纯封闭环境.
 
+无论是哪种环境,我们都是借助git的push和pull request事件来触发CI/CD工具执行预设任务,而CD部分我们则依赖portainer提供的api.
+
+我已经利用portainer的api构造了一个python的命令行工具[](),后文中很多部署操作也会用到它.
+
 ## 镜像标签与版本管理
 
 docker系体下镜像标签一版用于管理应用版本.但docker镜像标签的特点是同一个镜像可以有多个标签,因为实际上标签真的就是标签而已,镜像的唯一标识是一串hash字符串.针对这一特点,再结合git的常用工作流就有了不同的思路来管理容器使用的应用版本(工作流带来的路径依赖).但无论哪种方式,我的建议是镜像无论如何都要有明确的版本号,并且只给可以用于生产的镜像打`latest`标签.我们就针对`使用Git管理你的代码`一文中介绍的3种常见工作流来谈下在各自的工作流中怎么打标签
@@ -78,9 +82,9 @@ docker系体下镜像标签一版用于管理应用版本.但docker镜像标签�
 
 我们的例子就简化下上面的工作流,只有两个分支:
 
-+ master分支为只部署`latest`标签的方式
++ master分支为只部署`latest`标签的方式,只打`latest`和8位git commit的hash值作标签
 
-+ release分支为只部署特定版本镜像的方式
++ release分支为只部署特定版本(符合`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`形式版本号)镜像的方式
 
 ## github+dockerhub的纯开放环境下的CI/CD方案
 
@@ -111,10 +115,102 @@ github+dockerhub环境下我们的思路是:
     + `PORTAINER_USER`
     + `PORTAINER_PWD`
 
+这部分对应的仓库在<https://github.com/hsz1273327/docker-swarm_pipline_test>和<https://github.com/hsz1273327/docker-swarm_pipline_test_deploy>
 
-### gitea+harbor的纯封闭环境下的CI/CD方案
+### Github代码仓库CI/CD配置
 
-#### 镜像打包
+我们准备两个配置文件`.github\workflows\docker-buildandpublish-master.yml`和`.github\workflows\docker-buildandpublish-release.yml`分别对应master和release分支.
+
+他们的结构和主体部分是一致的,都分为如下步骤:
+
+1. 准备步骤(`Prepare`),用于构造镜像名和标签对应的字符串
+
+    + `master`
+
+        ```yaml
+        - name: Prepare
+          id: prep
+          run: |
+            DOCKER_IMAGE=${{ secrets.DOCKER_HUB_USER }}/${GITHUB_REPOSITORY#*/}
+            VERSION=latest
+            SHORTREF=${GITHUB_SHA::8}
+
+            TAGS="${DOCKER_IMAGE}:${VERSION},${DOCKER_IMAGE}:${SHORTREF}"
+
+            # Set output parameters.
+            echo ::set-output name=tags::${TAGS}
+            echo ::set-output name=docker_image::${DOCKER_IMAGE}
+        ```
+
+    + `release`
+
+        ```yaml
+        - name: Prepare
+          id: prep
+          run: |
+            DOCKER_IMAGE=${{ secrets.DOCKER_HUB_USER }}/${GITHUB_REPOSITORY#*/}
+            VERSION=0.0.1
+
+            TAGS="${DOCKER_IMAGE}:${VERSION},${DOCKER_IMAGE}:latest"
+
+            # Set output parameters.
+            echo ::set-output name=tags::${TAGS}
+            echo ::set-output name=docker_image::${DOCKER_IMAGE}
+        ```
+
+2. 设置QEMU(`Set up QEMU`),用于提供多平台交叉编译的能力
+
+    ```yaml
+    - name: Set up QEMU
+        uses: docker/setup-qemu-action@master
+        with:
+          platforms: all
+    ```
+
+3. 设置buildx(`Set up Docker Buildx`),用于提供buildx环境
+
+    ```yaml
+    - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+    ```
+
+4. 登录dockerhub(`Login to DockerHub`)
+
+    ```yaml
+    - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_PWD }}
+    ```
+
+5. 编译步骤(`Build`),用于使用buildx编译出镜像并推送到docker hub
+
+    ```yaml
+    - name: Build
+        uses: docker/build-push-action@v2
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.prep.outputs.tags }}
+    ```
+
+不同之处在于`release`分支在第一次编译出镜像后,下次如果要支持自动更新,则需要增加对应的配置.我们使用python环境,用我做的开源工具[]()来进行操作
+
+
+
+### Github部署仓库的配置
+
+我们在部署仓库中
+
+## gitea+harbor的纯封闭环境下的CI/CD方案
+
+### 镜像打包
 
 我们希望自动化打包可以使用buildx,打包跨平台的镜像,因此我们需要使用镜像[jdrouet/docker-with-buildx](https://hub.docker.com/r/jdrouet/docker-with-buildx),这个镜像是`docker:dind`的扩展.
 
