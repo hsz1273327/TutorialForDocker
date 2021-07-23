@@ -99,19 +99,6 @@ portainer支持docker本地安装,docker swarm集群安装,以及k8s集群安装
 
 在远程单机或者本地单机的情况下部署分为`stack`和`contaners`两级.在单机情况下确实`service`一级逻辑十分简单,所以portainer省略了这一级,这两级都可以用于部署容器,但一般还是在`stack`一级部署容器会更容易管理些.
 
-![stack管理页面](../IMGS/portainer-standalone-stack.PNG)
-
-`stack`中的docker-compose内容在`Editor`子页面,使用的是v2版本的docker-compose来部署(新版本似乎支持v3了但我个人依然不推荐),我们可以更改后点击`Update the stack`来更新这个stack.需要注意stack的更新并不会重新拉取镜像,只有在`Images`中重新拉取了镜像后remove掉执行中的容器后重新部署才会更新镜像.
-
-而如果你希望将这个stack的部署的内容也部署到其他端点,可以使用这个页面中显示的`Stack duplication / migration`下面的选项实现.
-
-在页面底部是这个stack下的容器的列表,我们可以选中要操作的容器直接在这个页面下操作,也可以直接点击容器中的四个小按钮进行一些常用操作
-
-+ `文件图标`: 查看容器log
-+ `感叹号图标`: 查看容器状态
-+ `图表图标`: 观察容器资源占用
-+ `命令行图标`: 连接容器命令行
-
 ### swarm环境
 
 使用agent部署docker swarm的情况下管理页面包括:
@@ -128,22 +115,113 @@ portainer支持docker本地安装,docker swarm集群安装,以及k8s集群安装
 + `Secrets`用于查看和管理当前设置的共享密钥,注意它只能增删不能改
 + `Swarm`用于管理当前集群的节点,注意它只能修改节点信息,添加删除节点,以及修改节点角色依然还是只能通过命令行
 
-在swarm情况下部署分为`stack`,`service`和`contaners`3级.这3级都可以在portainer中直接部署,但一般还是在`stack`一级部署会更容易管理些.
+在swarm情况下部署分为`stack`,`service`和`contaners`3级.这3级都可以在portainer中直接部署,但一般还是在`stack`一级部署会更容易管理些.swarm环境下使用的是v3版本的docker-compose来部署.
 
-![stack管理页面](../IMGS/portainer-swarm-stack.PNG)
+## stack管理
 
-`stack`中的docker-compose内容在`Editor`子页面,使用的是v3版本的docker-compose来部署.可以看出其结构和单机版本差别不大.和在单机版本中差不多,我们可以更改后点击`Update the stack`来更新这个stack.也可以通过`Stack duplication / migration`下面的选项来迁移stack.
+portainer的stack创建支持4种方式--compose文本,上传compose文件,指定git仓库中的指定文件,通过自定义模板构造.
 
-与单机版本的差别主要在页面底部的`services`栏目下.它依然是用于管理当前stack中服务的地方,只是在容器一层外多加了一层`service`,每个`service`可以点击打开,里面是单独的每个容器,容器管理和单机一样,依然是:
+![创建](../IMGS/portainer-stack-create-string.PNG)
+
+其中compose文本,上传compose文件实际是一回事,而通过自定义模板构造方式我们没用过所以这边只介绍compose文本和指定git仓库中的指定文件两种方式.
+
+注意单机环境Docker使用的是v2版本的docker-compose来部署(新版本portainer似乎支持v3了但我个人依然不推荐)
+
+### compose文本创建的stack
+
+通过compose文本创建stack就是将要部署的docker-compose.yaml文件内容贴到`web editor`中,然后根据需要设置外部参数和访问权限,最后点击`Deploy the stack`部署就好,如果部署成功则会跳转到stack列表页.
+
+列表页中点击stack名可以进入stack管理页面
+
+![stack管理页面](../IMGS/portainer-stack-string.PNG)
+
+如果你希望将这个stack的部署的内容也部署到其他端点,可以使用这个页面中显示的`Stack duplication / migration`下面的选项实现.
+
+`stack`中的docker-compose内容在`Editor`子页面.
+
+![stack管理页面-编辑](../IMGS/portainer-stack-edit.PNG)
+
+我们可以更改后点击`Update the stack`来更新这个stack.
+
+**需要注意:**
+
+1. 单机环境下stack的更新并不会重新拉取镜像,只有在`Images`中重新拉取了镜像后remove掉执行中的容器后重新部署才会更新镜像.
+2. swarm环境下会有选项`prune services`,激活这个选项会在更新成功后清理这个stack中不用了的资源.
+
+### 指定git仓库中的指定文件创建的stack
+
+![指定仓库创建页面](../IMGS/portainer-stack-create-git.PNG)
+
+创建的时候需要指定代码仓库的路径,分支/tag信息以及使用的compose文件所在路径.如果仓库访问有权限要求还需要将`Authentication`开启并填入代码仓库的登录信息.
+
+创建完成后在stack列表页中我们点击进去就是这个stack的管理页面.
+
+![stack管理页面](../IMGS/portainer-stack-git.PNG)
+
+这个页面和上面compose文本创建的stack不同,portainer保存的是这个仓库的信息和使用的文件路径,我们可以在这个页面上重新选择分支信息,如果要重新部署那么只要点击`pull and redeploy`就可以了.
+
+这种方式下也可以在`Editor`子页面直接编辑compose文件并更新stack.
+
+### 单机环境下stack中的容器管理
+
+在页面底部是这个stack下的容器的列表
+
+![容器列表](../IMGS/portainer-stack-containerlist.PNG)
+
+我们可以选中要操作的容器直接用这部分的顶部按钮进行操作,也可以直接点击容器中的四个小按钮进行一些常用操作
 
 + `文件图标`: 查看容器log
 + `感叹号图标`: 查看容器状态
 + `图表图标`: 观察容器资源占用
 + `命令行图标`: 连接容器命令行
 
-而如果要管理某个`service`则需要点击它的名字进入页面进行管理.在其中我们可以点击`Service logs`观察所有节点log的汇总.需要注意`Service logs`中打印是无序的,要分辨出是谁打的需要在log层面做标识.
+点击容器名就可以进入对应的容器详情页面,这里面有更加详细的容器信息.
 
-在`service`中我们也可以启动`web hook`来自动化更新,这个我们在后面的CI/CD部分再详细介绍
+### swarm环境下stack中的service管理
+
+类似单机环境下,在页面底部是这个stack下的service的列表
+
+![服务列表](../IMGS/portainer-stack-servicelist.PNG)
+
+它是用于管理当前stack中服务的地方,只是顶部快捷按钮变成了`update`和`remove`.swarm中service是可以单独更新的,我们点击`update`后可以选择更新是否要拉取新镜像.
+
+在容器一层外多加了一层`service`,每个`service`可以点击打开,里面是单独的每个容器,容器管理和单机一样,依然是:
+
++ `文件图标`: 查看容器log
++ `感叹号图标`: 查看容器状态
++ `图表图标`: 观察容器资源占用
++ `命令行图标`: 连接容器命令行
+
+如果你使用的是`replicated`模式部署的服务,那么服务还可以直接在`Scheduling Mode`栏目下进行伸缩操作
+![服务伸缩](../IMGS/portainer-stack-service-scale.PNG)
+
+而如果要更细致的管理某个`service`则需要点击它的名字进入页面进行管理.
+![服务信息](../IMGS/portainer-service-info.PNG)
+
+在其中我们可以点击`Service logs`观察所有节点log的汇总.需要注意`Service logs`中打印是无序的,要分辨出是谁打的需要在log层面做标识.
+
+在`service`中我们也可以启动`web hook`来自动化更新.这个我们在后面的CI/CD部分再详细介绍
+
+### 部署方式选择
+
+compose文本部署和指定git仓库中的指定文件部署两种方式并没有绝对的好坏区别
+
++ compose文本部署
+    + 优点:
+        + compose文件由portainer维护,如果git仓库迁移没有迁移成本
+    + 缺点:
+        + 如果portainer重新部署则需要先将compose文本一个一个复制出来手动迁移
+
++ 指定git仓库中的指定文件部署
+    + 优点:
+        + compose文件由git仓库维护,如果portainer需要迁移没有迁移成本
+        + 由于代码在git仓库中所以可以配合CI/CD工具自动部署
+    + 缺点:
+        + 如果git仓库迁移则需要将portainer中的stack都删除后重新创建
+
+因此使用哪种方式部署完全取决于你的portainer环境和git仓库环境哪个更稳定.
+
+通常portainer只会在由于性能和稳定性要求的变化下从单机迁移到集群模式(或者反向)部署,而git仓库的迁移通常会因为宿主机变化,组织形态变化等引起.我们选择哪种方式不是就需要根据实际情况做出权衡.
 
 ## 边缘计算
 
