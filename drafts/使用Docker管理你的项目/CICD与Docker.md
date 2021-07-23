@@ -2,7 +2,7 @@
 
 CI/CD几乎是现代软件工程的标配,我们可以通过定义任务管道自动的将测试,校验,打包,部署完成.而且这些是非侵入式的,这就让开发和运维解耦了.开发人员只需要写好程序,其他工作将交给程序自动完成.
 
-本文将以jenkins作为CI/CD工具,借助gitea作为代码仓库,配合harbor以及portainer的api来实现完整的CI/CD管道.不了解这两个工具的朋友可以看我博客[使用Github开始你的开源生涯系列文章](https://blog.hszofficial.site/series/%E4%BD%BF%E7%94%A8Github%E5%BC%80%E5%A7%8B%E4%BD%A0%E7%9A%84%E5%BC%80%E6%BA%90%E7%94%9F%E6%B6%AF/)中的这[使用Git管理你的代码](https://blog.hszofficial.site/introduce/2020/10/31/%E4%BD%BF%E7%94%A8Git%E7%AE%A1%E7%90%86%E4%BD%A0%E7%9A%84%E4%BB%A3%E7%A0%81)和[使用Jenkins代替GithubActions自动化工作流](https://blog.hszofficial.site/recommend/2020/12/02/%E4%BD%BF%E7%94%A8Jenkins%E4%BB%A3%E6%9B%BFGithubActions%E8%87%AA%E5%8A%A8%E5%8C%96%E5%B7%A5%E4%BD%9C%E6%B5%81/)两篇文章.
+本文将以jenkins作为CI/CD工具,借助gitea作为代码仓库,配合harbor以及portainer的api来实现完整的CI/CD管道.不了解这两个工具的朋友可以看我博客中的[使用Github开始你的开源生涯系列文章](https://blog.hszofficial.site/series/%E4%BD%BF%E7%94%A8Github%E5%BC%80%E5%A7%8B%E4%BD%A0%E7%9A%84%E5%BC%80%E6%BA%90%E7%94%9F%E6%B6%AF/).
 
 本文也是接在这系列文章之后的内容,毕竟现今的CI/CD几乎docker已经不可能缺席了.
 
@@ -16,13 +16,18 @@ CI/CD几乎是现代软件工程的标配,我们可以通过定义任务管道�
 4. 镜像漏洞扫描
 5. 镜像部署
 
-`使用Jenkins代替GithubActions自动化工作流`一文中我们已经可以用其中例子依葫芦画瓢完成1,2两步了,而harbor中我们也可以直接配置镜像漏洞扫描,剩下的我们则会在本文中介绍.
+这一系列文章中我们已经可以用其中例子依葫芦画瓢完成1,2两步了,而如果我们使用harbor做镜像仓库,我们也可以直接配置镜像漏洞扫描,剩下的我们则会在本文中介绍.
 
-本文将在gitea上创建项目`test/helloworld`,用之前[golang版本helloworld](https://github.com/hsz1273327/TutorialForDocker/tree/example-image-build-opt-build-go)的代码做例子演示
+本文将在gitea和github上创建项目`hellodocker`,用之前[golang版本hellodocker](https://github.com/hsz1273327/TutorialForDocker/tree/example-image-build-opt-build-go)的代码做例子演示.
+所以我们的CI/CD管道介绍也是分为两种环境--github+dockerhub的纯开放环境和gitea+harbor的纯封闭环境.
 
-Docker体系下的CI/CD管道
+### github+dockerhub的纯开放环境下的CI/CD方案
 
-### 自动化打包镜像
+由于dockerhub的镜像漏洞扫描功能并没有开放给社区用户,所以这套方案中我们会略过这一步.
+
+### gitea+harbor的纯封闭环境下的CI/CD方案
+
+#### 自动化打包镜像
 
 我们希望自动化打包可以使用buildx,打包跨平台的镜像,因此我们需要使用镜像[jdrouet/docker-with-buildx](https://hub.docker.com/r/jdrouet/docker-with-buildx),这个镜像是`docker:dind`的扩展.
 
