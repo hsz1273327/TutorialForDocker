@@ -24,7 +24,7 @@ CI/CD几乎是现代软件工程的标配,我们可以通过定义任务管道�
 
 无论是哪种环境,我们都是借助git的push和pull request事件来触发CI/CD工具执行预设任务,而CD部分我们则依赖portainer提供的api.
 
-我已经利用portainer的api构造了一个python的命令行工具[](),后文中很多部署操作也会用到它.
+我已经利用portainer的api构造了一个python的命令行工具[portainer_deploy_tool](https://github.com/Python-Tools/portainer_deploy_tool),后文中很多部署操作也会用到它.
 
 ## 镜像标签与版本管理
 
@@ -110,10 +110,12 @@ github+dockerhub环境下我们的思路是:
     + `DOCKER_HUB_PWD`
     + `PORTAINER_USER`
     + `PORTAINER_PWD`
+    + `PORTAINER_BASE_URL`
 
 2. 在项目`docker-swarm_pipline_test_deploy`的`Settings->Secrets`中设置
     + `PORTAINER_USER`
     + `PORTAINER_PWD`
+    + `PORTAINER_BASE_URL`
 
 这部分对应的仓库在<https://github.com/hsz1273327/docker-swarm_pipline_test>和<https://github.com/hsz1273327/docker-swarm_pipline_test_deploy>
 
@@ -200,13 +202,57 @@ github+dockerhub环境下我们的思路是:
           tags: ${{ steps.prep.outputs.tags }}
     ```
 
-不同之处在于`release`分支在第一次编译出镜像后,下次如果要支持自动更新,则需要增加对应的配置.我们使用python环境,用我做的开源工具[]()来进行操作
-
-
+不同之处在于`release`分支在第一次编译出镜像后,下次如果要支持自动更新,则需要增加对应的配置.这个后面介绍
 
 ### Github部署仓库的配置
 
-我们在部署仓库中
+我们在部署仓库中通过github action调用`portainer_deploy_tool`
+
++ `deploy-master.yaml`
+
+    ```yaml
+    name: Depoy Stacks
+
+    on:
+      push:
+        branches: [master]
+      pull_request:
+        branches: [master]
+
+    jobs:
+      deploy:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v2
+          - name: Set up Python 3.8
+            uses: actions/setup-python@v2
+            with:
+              python-version: 3.8
+          - name: Install Dependence
+            run: |
+              python -m pip install portainer_deploy_tool
+          - name: Run Update
+            run: |
+              python -m portainer_deploy_tool createorupdatestack \
+              --base-url=${{ secrets.PORTAINER_BASE_URL }} \
+              --username=${{ secrets.PORTAINER_USER }} \
+              --password=${{ secrets.PORTAINER_PWD }} \
+              --endpoints=6 \
+              --repository-url=https://github.com/${{ github.repository }}
+    ```
+
+进一步的,我们可以通过分支管理不同的端点,只要复制上面的yaml然后改下分支改下endpoints就行了.
+
+### 为latest标签的服务启动webhook
+
+进入服务管理页面激活webhook,
+
+![在portainer激活webhook](../../docs/IMGS/cicd-portainer-webhook.PNG)
+
+然后去dockerhub激活webhook
+![在dockerhub激活webhook](../../docs/IMGS/cicd-dockerhub-webhook.PNG)
+
+这样当我们更新`docker-swarm_pipline_test`项目的master分支时,github action执行成功将镜像推送到docker hub时就会激活注册的webhook.服务就被更新了
 
 ## gitea+harbor的纯封闭环境下的CI/CD方案
 
