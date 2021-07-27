@@ -63,13 +63,67 @@ docker系体下镜像标签一版用于管理应用版本.但docker镜像标签�
 | `release` | `release-<版本号>`标签   | 预发版环境可用,用于`端到端测试`和`消费者驱动测试` | CI/CD        |
 | `dev`     | `dev-<版本号>`标签       | 允许不能使用,更多的用于本地`单元测试`和`服务测试` | CI           |
 
-### 部署镜像时的标签选择
+## 镜像更新通知
+
+很多时候开发和部署不会是同一个人,即便是同一个人我们也应该将镜像更新的消息通知到一些相关的人员.
+
+如果你使用钉钉这类可以注册webhook的工具分发通知,那么可以直接使用镜像仓库的webhook功能.无论是docker hub 还是harbor都又webhook功能,可以在镜像被push上去后触发post调用,我们只需要将webhook地址存进去即可.
+
+1. 创建webhook地址(以钉钉为例)
+    ![在钉钉中创建webhook](../../docs/IMGS/cicd-dingding-webhook.PNG)
+2. 在镜像仓库中注册webhook
+    ![在harbor中注册webhook](../../docs/IMGS/cicd-harbor-webhook.PNG)
+    ![在dockerhub中注册webhook](../../docs/IMGS/cicd-dockerhub-webhook.PNG)
+
+如果没有钉钉这类可以注册webhook的工具,那么最常见的就是使用email分发更新通知了.
+
+我们可以使用[diun](https://crazymax.dev/diun/)来实现.它可以监控swarm集群中service使用的镜像的更新情况.在swarm集群中我们这样部署:
+
+```yaml
+version: "3.8"
+
+services:
+  diun:
+    image: crazymax/diun:latest
+    command: serve
+    volumes:
+      - "diun-data:/data"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    environment:
+      TZ: Asia/Shanghai
+      LOG_LEVEL: info
+      LOG_JSON: "true"
+      DIUN_WATCH_WORKERS: 20 # 监控线程数
+      DIUN_WATCH_SCHEDULE: "0 */6 * * *" # 每6小时检查一次
+      DIUN_PROVIDERS_SWARM: "true"
+      DIUN_NOTIF_MAIL_HOST: xxx
+      DIUN_NOTIF_MAIL_PORT: xxx
+      DIUN_NOTIF_MAIL_SSL: xxx
+      DIUN_NOTIF_MAIL_INSECURESKIPVERIFY: xxx
+      DIUN_NOTIF_MAIL_USERNAME: xxx
+      DIUN_NOTIF_MAIL_PASSWORD: xxx
+      DIUN_NOTIF_MAIL_FROM: xxx
+      DIUN_NOTIF_MAIL_TO: xxx
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+
+volumes:
+  diun-data:
+```
+
+diun除了支持email方式外还有好几种额外的通知方式,但使用镜像仓库的webhook方式可以及时广播通知,而diun只能轮询,从效率上来说第一种方式更好些.
+
+## 部署镜像时的标签选择
 
 一般是两种思路,这两种方式各有优缺点:
 
 1. 永远只部署`latest`标签的镜像
     + 优点:
-        + 是部署的stack可以不用改,每次原样update就好
+        + 是部署的stack可以不用改,每次原样update就好,非常适合借助webhook实现全自动的服务更新
     +缺点:
         + 镜像版本不是显式的,不够明确,这会让更新和回滚操作难以辨识是否成功
         + 更新会带来许多标签为`<none>`的虚悬镜像,需要定期使用`docker system prune -f`清理虚悬镜像
@@ -79,6 +133,7 @@ docker系体下镜像标签一版用于管理应用版本.但docker镜像标签�
         + 部署明确,利于观测更新和回滚操作
     + 缺点:
         + 更新无法体现到部署时的stack文件上.
+        + 由于需要更新stack因此无法避免人工介入,发布的实时性不如第一种方式
 
 我们的例子就简化下上面的工作流,只有两个分支:
 
@@ -90,18 +145,24 @@ docker系体下镜像标签一版用于管理应用版本.但docker镜像标签�
 
 github+dockerhub环境下我们的思路是:
 
-> 业务代码打包镜像:
+> 业务代码打包镜像
 
-+ `github action`负责CI部分,它的目的就是在校验好没有问题后把镜像打包好发送给`dockerhub`
+`github action`负责CI部分,它的目的就是在校验好没有问题后把镜像打包好发送给`dockerhub`
 
-> 部署部分:
+> 部署
 
-+ `github action`负责CD部分,它的目的就是当项目更新后通过推送激活portainer中指定stack进行更新
+`github action`负责CD部分,它的目的就是当项目更新后通过推送激活portainer中指定stack进行更新
 
-> 仅更新镜像部分:
+> 仅重新拉取更新`latest`镜像
 
-+ 只部署`latest`标签的方式:`dockerhub`负责通过webhook更新
-+ 部署时指定版本号的镜像的方式:业务代码打包镜像后增加更新部署相关step
+只部署`latest`标签的方式下我们可以在镜像更新后对服务进行更新,有两种方式实现
+
+1. `dockerhub`负责通过webhook更新
+2. 通过工具对其中注册的webhook进行更新
+
+> 修改stack配置及更新镜像位指定版本
+
+当需要修改stack中的配置比如修改环境变量,修改部署约束等,又或者要更换镜像的指定标签时,我们应该修改部署项目中的对应stack,然后推送直接更新stack.
 
 ### 准备工作
 
@@ -202,7 +263,59 @@ github+dockerhub环境下我们的思路是:
           tags: ${{ steps.prep.outputs.tags }}
     ```
 
-不同之处在于`release`分支在第一次编译出镜像后,下次如果要支持自动更新,则需要增加对应的配置.这个后面介绍
+我们的CI配置可以参考如下:
+
+```yaml
+name: "build images for master"
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Prepare
+        id: prep
+        run: |
+          DOCKER_IMAGE=${{ secrets.DOCKER_HUB_USER }}/${GITHUB_REPOSITORY#*/}
+          VERSION=latest
+          SHORTREF=${GITHUB_SHA::8}
+          TAGS="${DOCKER_IMAGE}:${VERSION},${DOCKER_IMAGE}:${SHORTREF}"
+          # Set output parameters.
+          echo ::set-output name=tags::${TAGS}
+          echo ::set-output name=docker_image::${DOCKER_IMAGE}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@master
+        with:
+          platforms: all
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+
+      - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USER }}
+          password: ${{ secrets.DOCKER_HUB_PWD }}
+
+      - name: Build
+        uses: docker/build-push-action@v2
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.prep.outputs.tags }}
+```
 
 ### Github部署仓库的配置
 
@@ -249,12 +362,19 @@ github+dockerhub环境下我们的思路是:
 
 ![在portainer激活webhook](../../docs/IMGS/cicd-portainer-webhook.PNG)
 
-然后去dockerhub激活webhook
-![在dockerhub激活webhook](../../docs/IMGS/cicd-dockerhub-webhook.PNG)
+然后去dockerhub注册webhook
+![在dockerhub注册webhook](../../docs/IMGS/cicd-dockerhub-webhook.PNG)
 
 这样当我们更新`docker-swarm_pipline_test`项目的master分支时,github action执行成功将镜像推送到docker hub时就会激活注册的webhook.服务就被更新了
 
 ## gitea+harbor的纯封闭环境下的CI/CD方案
+
+harbor虽然也有webhook,但它并不能针对某个特定名字的镜像进行触发而是只能针对一个命名空间进行触发.我们也就无法通过它来自动更新使用`latest`标签镜像的服务了.
+但我的工具`portainer_deploy_tool`可以来做这一步操作,只是它需要放在镜像打包完成后在CI的最后一步做执行.
+
+### 准备工作
+
+在jenkins的`Jenkins->Configure System(设置)->Global properties(全局属性)-Environment(环境变量)`位置添加键值对`HARBOR_HOSTNAME`
 
 ### 镜像打包
 
@@ -267,7 +387,6 @@ pipeline {
   agent none
   environment {
     VERSION = '0.0.0'
-    REGISTRY = 'xxxx'
     NAMESPACE = 'test'
     ARTIFACT_NAME = 'hellodocker'
     ARTIFACT_PLATFORMS = 'linux/amd64,linux/arm64'
