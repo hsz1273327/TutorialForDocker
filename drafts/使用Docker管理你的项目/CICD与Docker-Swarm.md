@@ -374,31 +374,27 @@ harbor虽然也有webhook,但它并不能针对某个特定名字的镜像进行
 
 ### 准备工作
 
-在jenkins的`Jenkins->Configure System(设置)->Global properties(全局属性)-Environment(环境变量)`位置添加键值对`HARBOR_HOSTNAME`
+在jenkins的`Jenkins->Configure System(设置)->Global properties(全局属性)-Environment(环境变量)`位置添加键值对`HARBOR_HOSTNAME`和`PORTAINER_URL`,同时为portainer,harbor和你的gitea的登陆账号密码注册Credentials,
 
 ### 镜像打包
 
 我们希望自动化打包可以使用buildx,打包跨平台的镜像,因此我们需要使用镜像[jdrouet/docker-with-buildx](https://hub.docker.com/r/jdrouet/docker-with-buildx),这个镜像是`docker:dind`的扩展.
 
-此外我们需要将登录我们harbor的信息注册到jenkins中.下面是`Jenkinsfile`示例
+下面是`Jenkinsfile`示例
 
 ```Jenkinsfile
 pipeline {
   agent none
   environment {
-    VERSION = '0.0.0'
-    NAMESPACE = 'test'
-    ARTIFACT_NAME = 'hellodocker'
+    VERSION = '0.0.1'
     ARTIFACT_PLATFORMS = 'linux/amd64,linux/arm64'
+    WEBHOOK_TOKENS = 'xxxx xxxxx xxxx'
   }
   stages {
+    
     stage('BuildArtifact') {
       when {
-        anyOf {
-          branch 'test'
-          branch 'dev'
-          branch 'master'
-        }
+        branch 'master'
       }
       agent {
         docker {
@@ -409,33 +405,114 @@ pipeline {
         echo '[BuildArtifact] buildx init'
         sh 'docker buildx create --use'
         echo '[BuildArtifact] login harbor'
-        withCredentials([usernamePassword(credentialsId: 'xxxxx', usernameVariable: 'HARBOR_USER',passwordVariable: 'HARBOR_PWD')]) {
-            sh 'docker login -u "$HARBOR_USER" -p "$HARBOR_PWD" $REGISTRY'
+        withCredentials([usernamePassword(credentialsId: 'xxxx', usernameVariable: 'OPS_USER',passwordVariable: 'OPS_PWD')]) {
+            sh 'docker login -u "$OPS_USER" -p "$OPS_PWD" $HARBOR_HOSTNAME'
         }
         echo '[BuildArtifact] start build'
-        sh 'docker buildx build --platform $ARTIFACT_PLATFORMS  -t $REGISTRY/$NAMESPACE/$ARTIFACT_NAME:$VERSION -t $REGISTRY/$NAMESPACE/$ARTIFACT_NAME:latest --push .'
+        sh 'GIT_REP=${GIT_URL#*9080/} && IMAGE_ARTIFACT=${GIT_REP%.*} && docker buildx build --platform $ARTIFACT_PLATFORMS  -t $HARBOR_HOSTNAME/$IMAGE_ARTIFACT:${GIT_COMMIT: 0:8} -t $HARBOR_HOSTNAME/$IMAGE_ARTIFACT:latest --push .'
         echo '[BuildArtifact] build done'
+      }
+    }
+
+    stage('UpdateService') {
+      when {
+        branch 'master'
+      }
+      agent {
+        docker {
+          image 'python:3.8'
+        }
+      }
+      steps {
+        echo '[UpdateService] install requirements'
+        sh 'python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple portainer_deploy_tool'
+        echo '[UpdateService] create or update'
+        withCredentials([usernamePassword(credentialsId: 'xxxxx', usernameVariable: 'OPS_USER',passwordVariable: 'OPS_PWD')]) {
+          sh '''
+          python -m portainer_deploy_tool updateservicebywebhooks \
+          --base-url=$PORTAINER_URL \
+          --retry-max-times=3 \
+          $WEBHOOK_TOKENS
+          '''
+        }
+      }
+    }
+
+    stage('Release-BuildArtifact') {
+      when {
+        branch 'release'
+      }
+      agent {
+        docker {
+          image 'jdrouet/docker-with-buildx:latest'
+        }
+      }
+      steps {
+        echo '[Release-BuildArtifact] buildx init'
+        sh 'docker buildx create --use'
+        echo '[Release-BuildArtifact] login harbor'
+        withCredentials([usernamePassword(credentialsId: '6fa9756d-8411-4193-bc9c-c3374314adda', usernameVariable: 'OPS_USER',passwordVariable: 'OPS_PWD')]) {
+            sh 'docker login -u "$OPS_USER" -p "$OPS_PWD" $HARBOR_HOSTNAME'
+        }
+        echo '[Release-BuildArtifact] start build'
+        sh 'GIT_REP=${GIT_URL#*9080/} && IMAGE_ARTIFACT=${GIT_REP%.*} && docker buildx build --platform $ARTIFACT_PLATFORMS  -t $HARBOR_HOSTNAME/$IMAGE_ARTIFACT:$VERSION -t $HARBOR_HOSTNAME/$IMAGE_ARTIFACT:latest --push .'
+        echo '[Release-BuildArtifact] build done'
       }
     }
   }
 }
 ```
 
+注意:
+
+1. jenkins中无法直接获得仓库的命名空间和仓库名,但可以通过环境变量`GIT_URL`拿到git仓库的地址,我们需要进行下处理将其转化为`命名空间/仓库名`作为镜像的名字
+2. 如果没有`WEBHOOK_TOKENS`则会报错退出,所以如果还未部署服务且未注册webhook的token的镜像`UpdateService`这步会失败
+3. 由于我的portainer,gitea,Jenkins和harbor使用的用户登陆信息都一样,我就可以只用`withCredentials`一次取出这个登陆信息
+
 这样推送后就可以在镜像仓库中找到了,如果我们的镜像仓库还设置了自动扫面,那么扫描工作也是自动化的了.
 
-### 镜像部署
+### stack部署
 
-镜像部署要不要自动化,在什么情况下要自动化实际上是有争论的.主要的争论点在于如何平衡自动化持续交付和人工校验修改配置.我们可以将情况分为如下几大类:
+在仓库`docker-swarm_pipline_test_deploy`中我们设置pipline如下:
 
-1. 第一次stack部署
-2. 已存在的stack只更新配置
-3. 已存在的stack只更新镜像
-4. 已存在的stack同时更新镜像和配置
+```Jenkins
+pipeline {
+  agent none
+  stages {
+    stage('Deploy Stack') {
+      when {
+        branch 'master'
+      }
+      environment {
+        ENDPOINTS = 6
+      }
+      agent {
+        docker {
+          image 'python:3.8'
+        }
+      }
+      steps {
+        echo '[Deploy Stack] install requirements'
+        sh 'python -m pip install -i https://pypi.tuna.tsinghua.edu.cn/simple portainer_deploy_tool'
+        echo '[Deploy Stack] create or update'
+        withCredentials([usernamePassword(credentialsId: '6fa9756d-8411-4193-bc9c-c3374314adda', usernameVariable: 'OPS_USER',passwordVariable: 'OPS_PWD')]) {
+          sh '''
+          GIT_REP=${GIT_URL#*9080/} && \
+          python -m portainer_deploy_tool createorupdatestack \
+          --base-url=$PORTAINER_URL \
+          --username=$OPS_USER \
+          --password=$OPS_PWD \
+          --repository-url=https://dev.hszofficial.site:9080/$GIT_REP \
+          --repository-username=$OPS_USER \
+          --repository-password=$OPS_PWD \
+          --retry-max-times=3 \
+          $ENDPOINTS
+          '''
+        }
+      }
+    }
+  }
+}
+```
 
-很明显1,2,4只能手动部署,而3则可以完全自动化部署更新.
-
-#### 使用portainer关联gitea上的仓库实现
-
-获取SwarmID
-http GET :9000/api/endpoints/1/docker/swarm \
-"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJhZG1pbiIsInJvbGUiOjEsImV4cCI6MTQ5OTM3NjE1NH0.NJ6vE8FY1WG6jsRQzfMqeatJ4vh2TWAeeYfDhP71YEE"
+如果不同分支的ENDPOINTS不同我们可以为每个分支设置一个stage,改下环境变量即可
