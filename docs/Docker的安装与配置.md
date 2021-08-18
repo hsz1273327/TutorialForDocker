@@ -26,6 +26,10 @@ Docker是开源软件,目前支持在x86-64指令集和arm指令集下安装和�
 
 ps: 在群晖系统中docker可以通过docker套件安装,重启则必须通过`synoservice --restart pkgctl-Docker`实现
 
+通常我们还是使用`systemctl`来管理docker的服务自启动行为.多数时候其启动配置在`/usr/lib/systemd/system/docker.service`,我们可以在`Service->ExecStart`找到其启动命令,默认是`/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock`.
+
+我们可以参考[官方文档中dockerd](https://docs.docker.com/engine/reference/commandline/dockerd/)的命令行参数对其进行适当修改.
+
 ## 利用Docker Desktop在Windows和Mac OS上安装Docker
 
 [Docker Desktop](https://hub.docker.com/?overlay=onboarding)是一个一站式的Docker环境,它已经帮我们把相关的坑都踩完了,因此在Windows和Mac OS上我们只需要直接下载对应平台后安装即可
