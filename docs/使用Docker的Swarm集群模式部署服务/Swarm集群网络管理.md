@@ -153,3 +153,40 @@ networks:
 用法就和host网络一样了.
 
 需要注意在使用stack创建的默认overlay网络时我们可以直接使用stack中定义的service名作为hostname使用,但使用外部定义的overlay网络时我们就要使用完整的service名即`<stack_name>_<service_name>`
+
+## 一些边界情况的处理
+
+网络从来都是一个麻烦的东西,常常会带来一些意想不到的bug.这部分我们介绍一些常见的bug以及其解决办法
+
+### vxlan未能正确清除
+
+swarm的网络很多时候依赖虚拟网卡,当service的网络配置改变后很可能会带来如下错误:
+
+```bash
+error network sandbox join failed: subnet sandbox join failed for "10.0.0.0/24": error creating vxlan interface: file exists
+```
+
+通常这并不会造成整个集群的网络出问题,而是个别几个节点因为这个无法启动这个改变了网络配置的service.
+
+处理方式如下:
+
+1. 检查出问题节点的`/sys/class/net`中是否有以`vx-`开头的interface.
+
+    ```bash
+    ls -l /sys/class/net/ | grep vx
+    ```
+
+2. 如果监测出有,则查看其详情,以确认是造成问题的interface.
+
+    ```bash
+    udevadm info /sys/class/net/vx-xxxxxxx-xxxxxx
+    ```
+
+3. 确认确实是造成错误的原因后将其删除
+
+    ```bash
+    sudo ip -d link show vx-xxxxxxx-xxxxxx
+    sudo ip link delete vx-xxxxxxx-xxxxxx
+    ```
+
+4. 重启service
