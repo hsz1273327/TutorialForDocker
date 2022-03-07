@@ -21,3 +21,5 @@ Docker自带一个集群模式`Swarm`,它的定位是轻量级的集群管理工
 swarm部分的文章主要是结合compose`v2`到`v3`的变化介绍docker swarm相比单机版本docker的变化.
 
 本系列以[3.8](https://docs.docker.com/compose/compose-file/compose-file-v3/)版本为基础介绍变化和使用注意点.
+
+本部分是容器化集群的分支之一,与k8s部分几乎平行,可以视需要选择是否学习.

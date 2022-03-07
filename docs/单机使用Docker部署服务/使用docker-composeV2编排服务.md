@@ -38,7 +38,7 @@ sudo curl -L "https://get.daocloud.io/docker/compose/releases/download/1.27.4/do
 
 + `v3`版本主要多出了`deploly`字段用于更加细化的定义`swarm`集群部署上的行为,因此`swarm`集群上部署服务都会用它.
 
-本章节介绍单机使用Docker.因此我会以`v2.4`版本为基础介绍`docker-compose`语法,下一章节介绍Swarm集群时我们会引入`v3`版本.本文只是一个引子,介绍基本语法和使用,一些部署和资源上的设置我们将在后面单独介绍.
+本章节介绍单机使用Docker.因此我会以`v2.4`版本为基础介绍`docker-compose`语法,下一章节介绍Swarm集群时我们会引入`v3`版本.注意**不是说单机无法使用v3版本的docker-compose,只是本文不介绍**,本文只是一个引子,介绍基本语法和使用,一些部署和资源上的设置我们将在后面单独介绍.
 
 一个典型的`docker-compose`配置文件使用[yaml格式](https://baike.baidu.com/item/YAML/1067697?fr=aladdin)定义.一个服务栈会与一个`docker-compose.yml`文件一一对应,服务栈会根据与其对应的`docker-compose.yml`配置其中的服务,网络,挂在卷等信息.一个典型的`docker-compose`配置文件如下:
 
