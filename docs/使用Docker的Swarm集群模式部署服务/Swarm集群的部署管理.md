@@ -2,7 +2,7 @@
 
 集群化部署服务在swarm中同样被抽象成了3层.
 
-1. `container`容器,用于实际部署镜像执行任务,是最小的部署单位.
+1. `task`,任务,用于实际部署镜像执行任务,是最小的部署单位.其本质就是一个`container`容器
 2. `service`服务,用于完成实际的特定任务,每个`service`由1个以上的同镜像同配置容器构成.
 3. `stack`服务栈,用于描述一组互不相同的`service`的集合,比较接近命名空间的概念,只是在同一个服务栈下会有一些默认设置可以方便容器相互识别
 
@@ -10,7 +10,7 @@
 
 在集群环境下swarm扩展了`service`部署的功能,除了支持原本单机就有的`资源限制`和`重启策略`外,还新增了`更新发布策略`和`回滚策略`功能.
 
-而在docker-compose v3版本中与v2版本最大的区别也在于将部署相关的操作全部移到了`deploy`字段内,这个字段涵盖了上面提到的中的5个方面
+而在docker-compose v3版本中与v2版本最大的区别也在于将在急群中部署相关的操作全部移到了`deploy`字段内,这个字段涵盖了上面提到的中的5个方面
 
 1. 资源限制
 2. 重启策略
@@ -41,6 +41,16 @@ deploy:
 `limits`限制了最高的用量,`reservations`限制了至少要保留的资源.其中`cpu`的限制是一个浮点数,其含义是使用单核的多少算力,比如`0.5`就是说只能使用单核的50%算力.
 
 如果服务或容器尝试使用的内存超过系统可用的内存,则可能会遇到内存不足异常(俗称`oom`),docker内核会杀掉容器进程或者Docker守护程序.为防止这种情况发生,应该确保应用程序在具有足够内存的主机上运行.
+
+除了最常规的cpu和memory外还可以设置如下几个项目用于限制资源.
+
++ `pids`,设置容器中的进程数量
++ `devices`,设置容器可以调用的设备资源,这个选项基本是为gpu设计的,通常放在`reservations`中.它又可以设置
+    + `capabilities`设置能力,默认的可选项只有`gpu`和`tpu`两个,但也可以根据`driver`的设置填入其他,比如`driver`设置为`nvidia`则`capabilities`就可以设置为`"nvidia-compute"`
+    + `driver`设置使用的驱动,通常就是`nvidia`
+    + `count`设置使用设备的个数,比如用两个gpu就设置为2
+    + `device_ids`指定设备的id,比如有两个gpu时同个这个id指定容器使用的是哪个,注意`device_ids`和`count`互斥
+    + `options`,driver的设置项.
 
 ## 重启策略设置
 
@@ -212,3 +222,92 @@ constraints:
 + `node.labels.city`为`guangzhou`和`shenzhen`的机器会各自获得3到4个容器,每个机器上都会有被分配到的所有容器
 
 也就是说`preferences`只是偏好策略,并不严格.
+
+## 使用占位符创建服务
+
+在swarm模式下我们的部署行为有的时候需要动态的生成,这时候就可以使用占位符了.占位符的用法遵循[go的模板语法](https://www.topgoer.com/%E5%B8%B8%E7%94%A8%E6%A0%87%E5%87%86%E5%BA%93/template.html),即`{{ }}`包裹的变量,且占位符并不能在所有位置生效.已知可以直接生效的位置包括:
+
++ `hostname`,用于设置每个容器自己的hostname,比如
+
+    ```yml
+    services:
+        worker:
+            ...
+            hostname: 'test.{{ .Service.Name }}.{{.Task.Slot}}'
+            deploy:
+                mode: replicated
+                replicas: 3
+            ...
+    ```
+
++ `volumes`,用于设置每个容器自己挂载的存储,比如
+
+    ```yml
+    services:
+        worker:
+            ...
+            volumes:
+            - foo:/mnt
+            deploy:
+                mode: replicated
+                replicas: 3
+
+    volumes:
+    foo:
+        name: 'worker-{{.Task.Slot}}'
+        ...
+    ```
+
++ `environments`,用于设置每个容器中自己的环境变量,比如
+
+    ```yml
+    services:
+        worker:
+            ...
+            environment:
+                X_NODE_ID: '{{.Node.ID}}'
+                X_NODE_HOSTNAME: '{{.Node.Hostname}}'
+                X_SERVICE_ID: '{{.Service.ID}}'
+                X_SERVICE_NAMES: '{{.Service.Name}}'
+                X_SERVICE_LABELS: '{{.Service.Labels}}'
+                X_TASK_NAME: '{{.Task.Name}}'
+                X_TASK_SLOT: '{{.Task.Slot}}'
+            deploy:
+                mode: replicated
+                replicas: 3
+
+        ...
+    ```
+
+除了上面三个外我们也可以在`command`中间接的使用,方法就是利用`environment`中转
+
+```yml
+services:
+    worker:
+        ...
+        environment:
+            X_NODE_ID: '{{.Node.ID}}'
+            X_NODE_HOSTNAME: '{{.Node.Hostname}}'
+            X_SERVICE_ID: '{{.Service.ID}}'
+            X_SERVICE_NAMES: '{{.Service.Name}}'
+            X_SERVICE_LABELS: '{{.Service.Labels}}'
+            X_TASK_NAME: '{{.Task.Name}}'
+            X_TASK_SLOT: '{{.Task.Slot}}'
+        deploy:
+            mode: replicated
+            replicas: 3
+        command: "echo $X_NODE_HOSTNAME-$X_SERVICE_NAMES-$X_TASK_SLOT
+    ...
+```
+
+在swarm中支持的占位符包括:
+
+| 占位符            | 说明                                                        |
+| ----------------- | ----------------------------------------------------------- |
+| `.Service.ID`     | 当前service的id                                             |
+| `.Service.Name`   | 当前Service的名字                                           |
+| `.Service.Labels` | 当前service的标签,在`deploy.labels`中设置                   |
+| `.Node.ID`        | 部署在Node的ID                                              |
+| `.Node.Hostname`  | 部署在Node的hostname                                        |
+| `.Task.Name`      | 部署Task的名字                                              |
+| `.Task.Slot`      | 部署Task所在的插槽,注意这个只会在使用`replicated`模式时生效 |
