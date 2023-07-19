@@ -2,6 +2,8 @@
 
 作为通用的容器部署编排工具,[docker-compose](https://github.com/docker/compose)已经是docker生态下的标准工具了.虽然docker也有直接使用`docker run`命令部署容器的方式,但从便利性和可维护性角度看已经完全没有必要介绍了.
 
+在古早版本中docker-compose区分v2,v3版本,两版语法不兼容适用范围也不一样,现如今这两个版本都已经废弃并合并.非常优秀的一点是当前版本兼容之前的两个版本,我们几乎不需要修改迁移.
+
 ## docker-compose的安装
 
 `docker-compose`本质上是一个python脚本程序,这个程序是`docker desktop`自带的.因此如果是window或者mac用户并不需要关心这个问题.而在linux下官方推荐的安装方式是使用如下命令
@@ -18,27 +20,38 @@ sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
 sudo rm /usr/local/bin/docker-compose
 ```
 
-由于有墙,国内下载上面的链接会相当慢,可以用如下命令替代:
+由于有墙,国内下载上面的链接会相当慢,可以先[翻墙下载好最新版本](https://github.com/docker/compose/releases),然后用如下命令复制到要部署的机器:
 
 ```bash
-sudo curl -L "https://get.daocloud.io/docker/compose/releases/download/1.27.4/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+# 本地复制到待部署机
+scp <docker-compose文件在本地的位置> <待部署机用户名>@<待部署机host或ip>:~/docker-compose
+# 在待部署机上部署compose
+ssh <待部署机用户名>@<待部署机host或ip>
+sudo cp docker-compose /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
 ```
-
+<!-- 
+```bash
+sudo curl -L "https://get.daocloud.io/docker/compose/releases/download/1.27.4/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+``` 
 注意:这种方式**只适用于`x86/64`架构的机器**,如果是在`arm`架构上部署我们必须使用`pip`安装,在使用`pip`安装前我们先要安装一个依赖`libffi-dev`,没有它`docker-compose`的安装会编译报错.
 
-如果使用`pip`安装,则卸载也需要使用`pip`.
+如果使用`pip`安装,则卸载也需要使用`pip`. -->
 
 ## docker-compose语法
 
-`docker-compose`本质上是一种配置文件,它遵循[yaml语法](https://yaml.org/).发展到现在已经有互不兼容的3个大版本了.目前`v1`,`v2`都已经不再更新维护,还在更新的就是`v3`版本了.
+`docker-compose`本质上是一种配置文件,它遵循[yaml语法](https://yaml.org/).发展到现在已经有4个大版本了.目前`v1`,`v2`,`v3`都已经不再更新维护,被统一称为`Compose V1`.在`compose 1.27.0` 版本后的实现统一被成为`Compose V2`.`v2`,`v3`版本相互不兼容,而`Compose V2`兼容合并了`v2`,`v3`的语法.
 
-目前看主流使用的是`v2`和`v3`两个版本,这两个版本的关键字和结构有较大重合,但至少暂时`v3`还无法替代`v2`版本.
+目前看主流使用的是`Compose V2`而`v2`和`v3`两个版本也有不少遗留,他们分别有如下特点
 
-+ `v2`版本虽然已经不再更新,但由于是对`docker run`命令的映射,对硬件的支持更好,所以一般单机部署都是使用的它;
++ `v2`版本,对`docker run`命令的映射,对硬件的支持更好,所以一般单机部署都是使用的它;
 
-+ `v3`版本主要多出了`deploly`字段用于更加细化的定义`swarm`集群部署上的行为,因此`swarm`集群上部署服务都会用它.
++ `v3`版本,主要多出了`deploly`字段用于更加细化的定义`swarm`集群部署上的行为,因此`swarm`集群上部署服务都会用它.
 
-本章节介绍单机使用Docker.因此我会以`v2.4`版本为基础介绍`docker-compose`语法,下一章节介绍Swarm集群时我们会引入`v3`版本.注意**不是说单机无法使用v3版本的docker-compose,只是本文不介绍**,本文只是一个引子,介绍基本语法和使用,一些部署和资源上的设置我们将在后面单独介绍.
++ `Compose V2`,语法是`v2`和`v3`的合并,在单机或`swarm`集群部署上都可以使用.也可以认为`v2`和`v3`分别是在不同场景下`Compose V2`的方言.
+
+本章节介绍单机使用Docker.因此我会以`v2.4`版本为基础介绍`docker-compose`语法,下一章节介绍Swarm集群时我们会引入`v3`版本语法.本文只是一个引子,介绍基本语法和使用,一些部署和资源上的设置我们将在后面单独介绍.
 
 一个典型的`docker-compose`配置文件使用[yaml格式](https://baike.baidu.com/item/YAML/1067697?fr=aladdin)定义.一个服务栈会与一个`docker-compose.yml`文件一一对应,服务栈会根据与其对应的`docker-compose.yml`配置其中的服务,网络,挂在卷等信息.一个典型的`docker-compose`配置文件如下:
 
@@ -52,6 +65,8 @@ services:
 可以看到基本结构有3层,当然复杂的可能也有4层5层.
 
 第一层包括`version`,`services`等,这一层一般是声明使用的语法版本,定义的服务,网络等内容以及一些通用设置;第二层通常就是具体各项的定义了,比如上面例子中`webapp`就是一个具体的服务的定义;第三层则是具体到各个项的配置,比如上面例子上`build`就是定义`webapp`这个服务的镜像编译行为.
+
+其中`version`仅仅是声明,`docker-compose`并不会根据申明的语法去进行不同版本的匹配,而是直接使用最新的语法规范进行解析.
 
 docker-compose的语法详细的还是因该去看[官方文档](https://docs.docker.com/compose/compose-file/).
 

@@ -10,19 +10,20 @@
 
 在集群环境下swarm扩展了`service`部署的功能,除了支持原本单机就有的`资源限制`和`重启策略`外,还新增了`更新发布策略`和`回滚策略`功能.
 
-而在docker-compose v3版本中与v2版本最大的区别也在于将在急群中部署相关的操作全部移到了`deploy`字段内,这个字段涵盖了上面提到的中的5个方面
+而在docker-compose v3版本中与v2版本最大的区别也在于将在急群中部署相关的操作全部移到了`deploy`字段内且`deploy`字段内的设置只会对swarm模式生效;而`Compose V2`则进一步将`deploy`字段的能力扩展到了单机上.
+
+这个字段涵盖了上面提到的中的许多方面
 
 1. 资源限制
 2. 重启策略
 3. 更新发布策略
 4. 回滚策略
 5. 容器部署分发策略
-
-注意v3版本依然支持v2版本中原有的配置项,只是`deploy`字段内的设置只会对swarm模式生效
+6. 网络模式(这个会在集群网络管理部分介绍)
 
 ## 资源限制设置
 
-在`v3`版本中资源配置相关的设置项被移动到了`deploy`字段下的`resources`字段下,且只能在swarm模式下生效.其形式如下:
+`deploy`字段下的`resources`字段下,且只能在swarm模式下生效.其形式如下:
 
 ```yml
 ...
@@ -52,9 +53,18 @@ deploy:
     + `device_ids`指定设备的id,比如有两个gpu时同个这个id指定容器使用的是哪个,注意`device_ids`和`count`互斥
     + `options`,driver的设置项.
 
+```yml
+deploy:
+    resources:
+        reservations:
+            devices:
+                - capabilities: ["gpu"]
+                  count: 2
+```
+
 ## 重启策略设置
 
-在`v3`版本中重启策略相关的设置项被移动到了`deploy`字段下的`restart_policy`字段下,且只能在swarm模式下生效,在swarm模式下`restart`字段不会生效.其形式如下:
+swarm集群下重启策略相关的设置项被移动到了`deploy`字段下的`restart_policy`字段下,且只能在swarm模式下生效,在swarm模式下`restart`字段不会生效.其形式如下:
 
 ```yml
 ...
@@ -82,7 +92,7 @@ deploy:
 
 在真实应用场景种服务更新是一个问题,在docker体系下通常我们更新服务发布就是更新镜像.因此为了除了问题便于回滚,更加建议镜像不用`latest`这样的标签来标识,老老实实按版本号发布.
 
-在`v3`版本中更新发布策略相关的设置项被移动到了`deploy`字段下的`update_config`字段下,且只能在swarm模式下生效.其形式如下:
+swarm集群下更新发布策略相关的设置项被移动到了`deploy`字段下的`update_config`字段下,且只能在swarm模式下生效.其形式如下:
 
 ```yml
 ...
@@ -112,7 +122,7 @@ deploy:
 
 回滚策略实际上是更新发布策略的扩展,当`update_config.failure_action`为`rollback`时才会生效,它会定义当更新失败时如何回滚.
 
-在`v3`版本中更新发布策略相关的设置项被移动到了`deploy`字段下的`rollback_config`字段下,且只能在swarm模式下生效.其形式如下:
+swarm集群下更新发布策略相关的设置项被移动到了`deploy`字段下的`rollback_config`字段下,且只能在swarm模式下生效.其形式如下:
 
 ```yml
 ...

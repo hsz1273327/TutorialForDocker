@@ -9,7 +9,7 @@
     * [利用harbor管理镜像](Docker的镜像及管理/利用harbor管理镜像.md)
     * [结语](Docker的镜像及管理/结语.md)
 * [单机使用Docker部署服务](单机使用Docker部署服务/README.md)
-    * [使用docker-composeV2编排服务](单机使用Docker部署服务/使用docker-composeV2编排服务.md)
+    * [使用docker-composeV2编排服务](单机使用Docker部署服务/使用docker-compose编排服务.md)
     * [网络设置](单机使用Docker部署服务/网络设置.md)
     * [挂载数据卷](单机使用Docker部署服务/挂载数据卷.md)
     * [容器调用外设](单机使用Docker部署服务/容器调用外设.md)
