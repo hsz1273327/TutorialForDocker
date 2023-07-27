@@ -180,19 +180,20 @@ deploy:
         constraints:
             - "node.role==manager"
             - "node.labels.group==test"
-            - "engine.labels.operatingsystem==ubuntu 18.04"
+            
         preferences:
-            - spread: node.labels.zone
+            - spread:datacenter
 ```
 
 `placement`有两种类型的设置:
 
-+ `constraints`
-+ `preferences`
++ `constraints`: 用于约束服务必须部署在符合指定标签的节点上
++ `preferences`: 用于约束服务优先部署在符合指定标签的节点上
 
 #### `constraints`约束设置
 
-`constraints`的含义是其包含的每条规则节点都必须满足才可以部署(也就是`AND`关系).其中的关系描述支持两种判断符
+`constraints`的含义是其包含的每条规则节点都必须满足才可以部署(也就是`AND`关系).
+其中的关系描述支持两种判断符
 
 + `==`表示`匹配`
 + `!=`表示`不匹配`
@@ -201,9 +202,10 @@ deploy:
 
 #### `preferences`偏好设置
 
-`preferences`用于根据不同的策略按设置时的顺序作为优先级顺序分发容器到节点.先被设置的策略会被先执行,然后再执行后设置的策略.不过这一设置一样还是带有很强的随机性.
+`preferences`用于优先部署在满足条件的节点上,根据不同的策略按设置时的顺序作为优先级顺序分发容器到节点.
+先被设置的策略会被先执行,然后再执行后设置的策略.不过这一设置一样还是带有很强的随机性.
 
-而且注意,`preferences`偏好设置对`mode`为`global`的部署无效
+注意,`preferences`偏好设置对`mode`为`global`的部署无效
 
 不过`preferences`偏好设置目前只支持`spread`策略
 
@@ -222,7 +224,7 @@ deploy:
 
 ```yaml
 constraints:
-    - "node.labels.has_city==true"
+    - "node.labels.has_city=true"
 ```
 
 则会变成:
