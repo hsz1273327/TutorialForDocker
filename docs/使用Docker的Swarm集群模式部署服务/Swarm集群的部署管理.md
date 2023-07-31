@@ -323,3 +323,7 @@ services:
 | `.Node.Hostname`  | 部署在Node的hostname                                        |
 | `.Task.Name`      | 部署Task的名字                                              |
 | `.Task.Slot`      | 部署Task所在的插槽,注意这个只会在使用`replicated`模式时生效 |
+
+## 部署stack
+
+在写好`docker-compose.yml`后我们只需要在manager节点执行`docker stack deploy -c <path to docker-compose.yml> <stack_name>`命令就可以启动部署操作.如果要删除stack则使用`docker stack rm <stack_name>`即可.当然更推荐使用portainer进行stack管理.有个gui还是方便很多.
