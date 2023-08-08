@@ -166,31 +166,28 @@ swarm节点有如下固定的属性信息:
 
 swarm中想让gpu可以被使用会比较麻烦,我们需要对`/etc/docker/daemon.json`和`/etc/nvidia-container-runtime/config.toml`进行额外的设置:
 
-1. 执行`nvidia-smi -a | grep UUID | awk '{print substr($4,0,12)}'`,获取到显卡的uuid,比如`GPU-2b263bf3`
-
-2. 修改`/etc/docker/daemon.json`如下:
+1. 我们需要将默认的runtime设置为英伟达的runtime,修改`/etc/docker/daemon.json`如下:
 
     ```json
     {
         ...
         "runtimes": {
             "nvidia": {
-            "path": "/usr/bin/nvidia-container-runtime",
-            "runtimeArgs": []
+                "path": "/usr/bin/nvidia-container-runtime",
+                "runtimeArgs": []
             }
         },
-        "default-runtime": "nvidia",
-        "node-generic-resources": [
-            "NVIDIA-GPU=GPU-2b263bf3"
-        ]
+        "default-runtime": "nvidia"
     }
     ```
 
-3. 修改`/etc/nvidia-container-runtime/config.toml`,在其中增加`swarm-resource = "DOCKER_RESOURCE_GPU"`
+2. 让swarm可以识别gpu资源,修改`/etc/nvidia-container-runtime/config.toml`,在其中增加`swarm-resource = "DOCKER_RESOURCE_GPU"`
 
-4. 重启docker服务:
+3. 重启docker服务:
 
     ```bash
     sudo systemctl daemon-reload
     sudo systemctl start docker
     ```
+
+通过如下设置,当swarm将任务分配到gpu节点时,对应的service就可以正常使用gpu了.
