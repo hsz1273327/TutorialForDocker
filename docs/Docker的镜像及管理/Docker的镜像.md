@@ -330,5 +330,13 @@ docker buildx build --load --platform={指定平台} -t {tag} .
 | 查看镜像属性                         | `docker inspect {iid}`                                                                        |
 | 批量删除未在使用无标签镜像(虚悬镜像) | `docker rmi (docker images --filter dangling=true -q --no-trunc)`/`docker container prune -f` |
 | 批量删除所有镜像                     | `docker rmi (docker images -q)`                                                               |
-| 导出镜像                             | `docker save {iid} > {name}.tar`                                                              |
+| 导出镜像                             | `docker save  -o {name}.tar {iid}`                                                            |
 | 导入镜像                             | `docker load < {name}.tar`                                                                    |
+
+### 不依赖镜像仓库的分发方式
+
+一些边缘场景我们很可能没有可以使用镜像仓库的网络环境,这时我们就需要借助`docker save`和`docker load`这组命令了.
+
+我们可以在有网络环境的机器上使用`docker pull`命令先将镜像拉到本地,之后使用`docker save`命令将其保存为一个`.tar`格式的压缩文件,之后找个U盘什么的将其拷到目标机器,再用`docker load`命令将其导入到目标机器的docker环境中.
+
+需要注意的是`docker save`仅会保存当前架构下的镜像而非全部跨平台的profile.因此我们必须人为的确保目标机器和下载机器架构平台一致.比如目标机器是arm64的机器,我们的下载机就也得是arm64的机器
