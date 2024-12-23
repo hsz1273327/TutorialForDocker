@@ -4,7 +4,7 @@ docker的GUI应用难点在于如何让容器中的gui可以在本地渲染,本�
 
 没错了,x11作为linux上的古早桌面系统,拥有跨平台,兼容好的特点.虽然是个上古神器,但好就好在它在各个操作系统中都有对应的客户端工具.借助它我们就可以在docker中跑GUI应用了.而且理论上我们还可以将内容丢出来给外面其他的平台使用.
 
-本文的例子在[分支]()
+本文的例子在[docker-for-gui分支](https://github.com/hsz1273327/TutorialForDocker/tree/docker-for-gui)
 
 ## X11的原理
 
