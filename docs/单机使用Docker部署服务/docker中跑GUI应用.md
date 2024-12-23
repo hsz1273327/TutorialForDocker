@@ -4,6 +4,8 @@ docker的GUI应用难点在于如何让容器中的gui可以在本地渲染,本�
 
 没错了,x11作为linux上的古早桌面系统,拥有跨平台,兼容好的特点.虽然是个上古神器,但好就好在它在各个操作系统中都有对应的客户端工具.借助它我们就可以在docker中跑GUI应用了.而且理论上我们还可以将内容丢出来给外面其他的平台使用.
 
+本文的例子在[分支]()
+
 ## X11的原理
 
 我们其实在前面介绍容器调用外设的时候已经简单用过X11,这里我会细致讲讲其中的细节.
@@ -92,50 +94,103 @@ CMD xeyes
 
 这个镜像安装了x11的几个应用,然后默认执行`xeyes`这个应用.这个GUI应用会展示两个眼睛,他们会跟随你的鼠标做动作.
 
-![xeyes]
-
+![xeyes](../IMGS/docker-for-gui/xeyes.png)
 
 ## 在macos上用docker跑GUI应用
 
-在macos我们需要先安装[Xquartz](https://www.xquartz.org/)以获得`X server`.
+在macos上通过docker跑GUI应用我们需要做几个预备操作.
 
-除此之外,由于macos的docker是跑在虚拟机里的,我们是无法直接使用`Unix-domain socket`通信的,那退而求其次我们就用TCP协议.
+1. 安装[Xquartz](https://www.xquartz.org/)以获得`X server`.启动一次,然后重启机器,在进入terminal后我们可以检查下环境变量`DISPLAY`的值是否是类似`/private/tmp/com.apple.launchd.M7vTH5jpJs/org.xquartz:0`的形式.
 
-我们需要让一个端口转发`X client`的消息到本地的的`Unix-domain socket`对应socket文件,这样链路就打通了.这个能力我们可以借助`socat`
+2. 安装`socat`.由于macos的docker是跑在虚拟机里的,我们是无法直接使用`Unix-domain socket`通信的,那退而求其次我们就用TCP协议.我们需要让一个端口转发`X client`的消息到本地的的`Unix-domain socket`对应socket文件,这样链路就打通了.这个能力我们就可以借助`socat`.
+
+    ```bash
+    brew install socat
+    ```
+
+之后就是写一个脚本来启动我们的docker.比如就叫`runXeyes.sh`
 
 ```bash
-brew install socat
+#!/usr/bin/env bash
+CONTAINER=xeyes
+
+DISP_NUM=$(jot -r 1 100 200)  
+PORT_NUM=$((6000 + DISP_NUM)) 
+# 启动转发服务
+socat TCP-LISTEN:${PORT_NUM},reuseaddr,fork UNIX-CLIENT:\"$DISPLAY\" 2>&1 > /dev/null &
+
+docker run \
+    --rm \
+    -e DISPLAY=host.docker.internal:$DISP_NUM \
+    $CONTAINER
+
+# 回收转发服务
+kill %1
 ```
 
-之后就是写一个脚本来启动我们的docker
+之后需要使用的时候就进terminal.执行这个脚本即可.
+
+```bash
+bash runXeyes.sh
+```
+
+## 在windows上用docker跑GUI应用
+
+windows上的docker一样跑在虚拟机里,因此也和macos上操作类似,我们需要先搞定x11环境,然后让容器可以走TCP协议访问本地x11环境的`X server`.
+
+在macos上通过docker跑GUI应用我们需要做几个预备操作.
+
+1. 安装[MobaXterm](https://mobaxterm.mobatek.net/)以获得`X server`,和macos中不同,X11是嵌在`MobaXterm`中的而不是嵌在系统里的,因此后续的操作我们需要全程在`MobaXterm`提供的shell里执行
+
+2. 启动`MobaXterm`,进入`Settings -> X11(tab)`,设置`X11 Remote Access(X11远程访问)`为 `full`,并设置好`显示偏移量`(我这里默认用1).这样只要打开`MobaXterm`,容器就可以通过连接本地的`6001`端口访问本地`X server`了
+
+之后我们需要的只是在容器的环境变量中指定`DISPLAY`为本地`6000`+`显示偏移量`即可.我们用如下脚本(`runXeyesInMobaXterm.sh`)
 
 ```bash
 #!/usr/bin/env bash
 
 CONTAINER=xeyes
 
+# 获取当前本机的内网ip作为作为容器环境变量`DISPLAY`的host部分
+# IPADDR=$(ifconfig $NIC | grep "inet " | awk '{print $2}')
 # 100 - 200间找个随机数,作为容器环境变量`DISPLAY`的端口
-DISP_NUM=$(jot -r 1 100 200)  
-# 6000+上面的随机数,构造为TCP监听的端口
-PORT_NUM=$((6000 + DISP_NUM)) 
-# so multiple instances of the container won't interfer with eachother
-socat TCP-LISTEN:${PORT_NUM},reuseaddr,fork UNIX-CLIENT:\"$DISPLAY\" 2>&1 > /dev/null &
-# XSOCK=/tmp/.X11-unix
-    # -v $XSOCK:$XSOCK:rw \
+DISP_NUM=1
+
 docker run \
-    -it \
     --rm \
     -e DISPLAY=host.docker.internal:$DISP_NUM \
     $CONTAINER
-
-# rm -f $XAUTH
-kill %1       # kill the socat job launched above
 ```
 
-我们其实就做了两件事
+要使用时先打开`MobaXterm`,然后执行这个脚本`bash runXeyesInMobaXterm.sh`即可
 
-1. 随机摇一个`DISPLAY_NUM`
-2. 使用`socatDISPLAY=host.docker.internal:$DISPLAY_NUM+6000`将本地对应端口转发到`Unix-domain socket`对应socket文件
-3. 用环境变量`DISPLAY=host.docker.internal:$DISPLAY_NUM`执行镜像
+## 在linux上用docker跑GUI应用
 
-这个脚本并不能直接执行
+由于linux上自带x11,而且docker是原生的并没有经过虚拟机,因此我们可以通过映射socket文件直接通过`Unix-domain socket`通信.
+
+```bash
+#!/usr/bin/env bash
+CONTAINER=xeyes
+
+docker run --rm \
+    -e DISPLAY=$DISPLAY \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    $CONTAINER
+```
+
+当然了写个docker-compose也很简单
+
+```yml
+version: "2.4"
+services:
+    xeye:
+        image: xeyes
+        logging:
+            options:
+                max-file: "3"
+                max-size: 10m
+        environment:
+            - DISPLAY=$DISPLAY
+        volumes:
+            - /tmp/.X11-unix:/tmp/.X11-unix     
+```
