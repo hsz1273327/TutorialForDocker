@@ -1,0 +1,13 @@
+version: "2.4"
+services:
+    xeye:
+        image: xeyes
+        logging:
+            options:
+                max-file: "3"
+                max-size: 10m
+        environment:
+            - DISPLAY=$DISPLAY
+        volumes:
+            - /tmp/.X11-unix:/tmp/.X11-unix
+        

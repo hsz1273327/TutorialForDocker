@@ -1,3 +1,8 @@
-# TutorialForDocker的例子分支
+# Docker for GUI
 
-这个分支将全部都是例子,例子会按章节分叉,每个章节一个单独的分叉,然后不同的例子会放在不同的tag中.
+用docker跑GUI程序的例子
+
++ `dockerfile`和`build.sh`用于构造例子镜像
++ `docker-compose.linux.yml`用于在linux系统中跑例子
++ `runXeyes.sh`用于在macos中跑例子
++ `runXeyesInMobaXterm.sh`用于在windows中跑例子
