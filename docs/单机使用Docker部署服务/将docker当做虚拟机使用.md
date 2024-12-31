@@ -77,6 +77,13 @@ services:
 
 ## window虚拟机
 
+windows虚拟机应该是linux下的最需要的了,使用docker构造windows虚拟机可以分为两步
+
+1. 安装windows虚拟机
+2. 使用windows虚拟机
+
+### 安装windows虚拟机
+
 需要注意windows是分`windows`和`arm-windows`的,他们实际是两种操作系统.你需要根据你的cpu指令集选择合适的.
 
 如果是`x86_amd64`架构可以使用[dockur/windows](https://github.com/dockur/windows)镜像
@@ -92,12 +99,12 @@ services:
             PASSWORD: "gates" #指定密码
             LANGUAGE: "Chinese" #指定语言
             DISK_SIZE: "256G"
-            RAM_SIZE: "8G"
+            RAM_SIZE: "32G"
             CPU_CORES: "4"
             ARGUMENTS: "-device usb-host,vendorid=0x1234,productid=0x1234" #油usb调用就加
         volumes: # 需要指定位置给window做硬盘可以加上,不用自己创建文件夹,容器会自己创建
             - /var/win:/storage # 系统盘
-            -  /home/user/example:/data #和宿主机共享的空间
+            - /home/user/example:/data #和宿主机共享的空间
         devices:
             - /dev/kvm
             - /dev/net/tun
@@ -121,19 +128,16 @@ services:
         environment:
             VERSION: "11" # 推荐11即Windows 11 Pro
             USERNAME: "bill" #指定用户名
-            PASSWORD: "gates" #指定密码
             LANGUAGE: "Chinese" #指定语言
             DISK_SIZE: "256G"
             RAM_SIZE: "8G"
             CPU_CORES: "4"
-            ARGUMENTS: "-device usb-host,vendorid=0x1234,productid=0x1234" #油usb调用就加
         volumes: # 需要指定位置给window做硬盘可以加上
             - /var/win:/storage # 系统盘
-            -  /home/user/example:/data #和宿主机共享的空间
+            - /home/user/example:/data #和宿主机共享的空间
         devices:
             - /dev/kvm
             - /dev/net/tun
-            - /dev/bus/usb  #油usb调用就加
         cap_add:
             - NET_ADMIN
         ports:
@@ -146,3 +150,10 @@ services:
 之后用浏览器进入`http://localhost:8006`,就和正常安装windows一样,各种选择各种下一步就可以安装完成了.
 
 如果我们在ubuntu中用`docker compose up`启动windows虚拟机会发现报错起不起来,这是因为会和ubuntu的`远程桌面`端口冲突,关闭`远程桌面`即可.
+
+### 使用windows虚拟机
+
+在浏览器中固然可以使用刚才创建的虚拟机,但体验属于比较差的,而且如你所见还和ubuntu的远程桌面冲突,换一个思路,我们完全可以将.我们可以通过修改`docker-compose.yml`文件,利用已经装好的容器
+
+<!-- https://github.com/dockur/windows?tab=readme-ov-file#how-do-i-assign-an-individual-ip-address-to-the-container -->
+<!-- https://blog.oddbit.com/post/2018-03-12-using-docker-macvlan-networks/#host-access -->
