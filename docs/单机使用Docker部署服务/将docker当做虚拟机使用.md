@@ -13,7 +13,7 @@ docker内是可以跑完整linux操作系统的,因此有一种邪道用法就�
 
 + 对于windows,windows上已经有了官方的wsl这个linux虚拟机,一般也不太需要额外的macos环境或者别的windows环境
 + 对于macos,有terminal一般连linux虚拟机都用不着,但一些软件只有windows平台,这时候可能需要一个windows虚拟机.不过很可惜,这套没法使用.
-+ 对于linux桌面操作系统,由于生态真的挺缺失的,这套工具是真的有用武之地的.
++ 对于linux桌面操作系统,由于生态真的挺缺失的,这套工具是真的有用武之地的,尤其是windows.
 
 本文将以linux原生docker engine环境为基础介绍如何使用这套工具.
 
@@ -30,6 +30,8 @@ docker内是可以跑完整linux操作系统的,因此有一种邪道用法就�
     ```
 
     如果报错则表明kvm无法使用骂我们需要重启机器进入`BIOS`中检查`虚拟化扩展(Intel VT-x或AMD SVM)`是否已启用.如果还是不行,试试在启动容器的docker compose中加上`privileged: true`再试试.
+
+3. 对于macos,最好硬件是老x86mac对应的cpu,amd的似乎支持都不太好.
 
 ## 基本用法
 
@@ -53,7 +55,7 @@ services:
             RAM_SIZE: "8G"
             CPU_CORES: "4"
             ARGUMENTS: "-device usb-host,vendorid=0x1234,productid=0x1234" #有usb调用就加
-        volumes:  # 需要指定位置给wmacos做硬盘可以加上
+        volumes:  # 需要指定位置给wmacos做硬盘可以加上,不用自己创建文件夹,容器会自己创建
             - /var/osx:/storage
         devices:
             - /dev/kvm
@@ -68,7 +70,10 @@ services:
         stop_grace_period: 2m
 ```
 
-之后用浏览器进入`http://localhost:8006`,就和正常安装windows一样,各种选择各种下一步就可以安装完成了.
+之后用浏览器进入`http://localhost:8006`,在浏览器中完成安装:
+
+1. 选中`Disk Utility`,然后找到最大的那块命名为`Apple Inc. VirtIO Block Media disk`的盘,把它取个名字擦除成`APFS`格式.
+2. 重新进入初始页面,选`Reinstall macOS`一路同意,最后选我们取名字那块盘把系统安装上就好了.
 
 ## window虚拟机
 
@@ -90,7 +95,7 @@ services:
             RAM_SIZE: "8G"
             CPU_CORES: "4"
             ARGUMENTS: "-device usb-host,vendorid=0x1234,productid=0x1234" #油usb调用就加
-        volumes: # 需要指定位置给window做硬盘可以加上
+        volumes: # 需要指定位置给window做硬盘可以加上,不用自己创建文件夹,容器会自己创建
             - /var/win:/storage # 系统盘
             -  /home/user/example:/data #和宿主机共享的空间
         devices:
@@ -139,3 +144,5 @@ services:
 ```
 
 之后用浏览器进入`http://localhost:8006`,就和正常安装windows一样,各种选择各种下一步就可以安装完成了.
+
+如果我们在ubuntu中用`docker compose up`启动windows虚拟机会发现报错起不起来,这是因为会和ubuntu的`远程桌面`端口冲突,关闭`远程桌面`即可.
